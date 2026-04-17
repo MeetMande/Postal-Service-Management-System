@@ -119,6 +119,11 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\PostalServiceWinForms.Tests\PostalServiceWinForms.Tests.csproj">
+      <Project>{07dfd2ce-0e41-4afe-b2be-b4a84b5b637f}</Project>
+      <Name>PostalServiceWinForms.Tests</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

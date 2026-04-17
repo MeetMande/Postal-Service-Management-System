@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="PostalServiceWinForms.Tests/PostalServiceWinForms.Tests.csproj" Id="07dfd2ce-0e41-4afe-b2be-b4a84b5b637f" />
   <Project Path="PostalServiceWinForms/PostalServiceWinForms.csproj" Id="8aeacdbb-a54c-40f0-a431-6e0aadf1e244" />
 </Solution>
