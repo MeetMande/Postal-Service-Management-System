@@ -41,8 +41,8 @@ namespace PostalServiceWinForms.Forms
         private int pkgSvcIndex = 0;
 
         // Main panels
-        private Panel pnlList, pnlSend, pnlStamps;
-        private Button btnList, btnSend, btnStampsTab;
+        private Panel pnlList, pnlSend;
+        private Button btnList, btnSend;
 
         private DatabaseHelper db;
         private string userID, userName;
@@ -85,7 +85,7 @@ namespace PostalServiceWinForms.Forms
 
         private void Build()
         {
-            // Top navigation bar - tall enough so buttons are fully visible below main nav
+            // Top navigation bar
             Panel topBar = new Panel { Dock = DockStyle.Top, Height = 110, BackColor = Color.White };
             topBar.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Color.FromArgb(218, 218, 218)), 0, 109, topBar.Width, 109);
             this.Controls.Add(topBar);
@@ -132,23 +132,6 @@ namespace PostalServiceWinForms.Forms
             btnSend.Click += (s, e) => Switch("send");
             topBar.Controls.Add(btnSend);
 
-            // Stamps tab button
-            btnStampsTab = new Button
-            {
-                Text = "Buy Stamps",
-                Location = new Point(498, 60),
-                Size = new Size(140, 38),
-                Font = new Font("Segoe UI", 10),
-                BackColor = Color.FromArgb(240, 240, 240),
-                ForeColor = Red,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            btnStampsTab.FlatAppearance.BorderColor = Color.FromArgb(210, 190, 190);
-            btnStampsTab.FlatAppearance.BorderSize = 1;
-            btnStampsTab.Click += (s, e) => Switch("stamps");
-            topBar.Controls.Add(btnStampsTab);
-
             // My Parcels panel
             pnlList = new Panel { Dock = DockStyle.Fill, BackColor = Bg, Visible = true };
             this.Controls.Add(pnlList);
@@ -159,11 +142,6 @@ namespace PostalServiceWinForms.Forms
             this.Controls.Add(pnlSend);
             BuildSendForm();
 
-            // Stamps panel
-            pnlStamps = new Panel { Dock = DockStyle.Fill, BackColor = Bg, AutoScroll = true, Visible = false };
-            this.Controls.Add(pnlStamps);
-            BuildStampsPanel();
-
             RefreshParcels();
         }
 
@@ -172,18 +150,14 @@ namespace PostalServiceWinForms.Forms
         {
             pnlList.Visible = which == "list";
             pnlSend.Visible = which == "send";
-            pnlStamps.Visible = which == "stamps";
 
             if (which == "list") pnlList.BringToFront();
             if (which == "send") pnlSend.BringToFront();
-            if (which == "stamps") pnlStamps.BringToFront();
 
             btnList.BackColor = which == "list" ? Red : Color.FromArgb(240, 240, 240);
             btnList.ForeColor = which == "list" ? Color.White : Red;
             btnSend.BackColor = which == "send" ? Red : Color.FromArgb(240, 240, 240);
             btnSend.ForeColor = which == "send" ? Color.White : Red;
-            btnStampsTab.BackColor = which == "stamps" ? Red : Color.FromArgb(240, 240, 240);
-            btnStampsTab.ForeColor = which == "stamps" ? Color.White : Red;
 
             if (which == "list") RefreshParcels();
             if (which == "send") RefreshTrackID();
@@ -660,122 +634,11 @@ namespace PostalServiceWinForms.Forms
             Recalc();
         }
 
-        // ============================================================
-        // STAMPS PANEL
-        // ============================================================
-        private void BuildStampsPanel()
-        {
-            int y = 10;
-
-            // Header
-            pnlStamps.Controls.Add(new Label { Text = "Buy Stamps", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = Red, Location = new Point(10, y), Size = new Size(400, 36) });
-            y += 44;
-            pnlStamps.Controls.Add(new Label { Text = "Browse stamp types and find your nearest location to buy them.", Font = new Font("Segoe UI", 11), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(900, 24) });
-            y += 36;
-
-            // Stamp types section heading
-            SH2("Available Stamp Types", y); y += 40;
-
-            // Stamp cards with symbols
-            var stamps = new (string symbol, string name, string price, string desc, string weight, string days)[]
-            {
-                ("[1ST]",  "First Class",       "GBP 1.10", "Fastest domestic delivery",  "Up to 100g",  "Next working day"),
-                ("[2ND]",  "Second Class",      "GBP 0.75", "Standard domestic delivery", "Up to 100g",  "2-3 working days"),
-                ("[LRG]",  "Large Letter",      "GBP 1.55", "For larger envelopes",       "Up to 250g",  "2-3 working days"),
-                ("[INTL]", "International",     "GBP 1.85", "Send to Europe and beyond",  "Up to 100g",  "3-7 working days"),
-                ("[SPEC]", "Special Delivery",  "GBP 6.85", "Tracked and guaranteed",     "Up to 500g",  "Next day by 1pm"),
-                ("[SIGN]", "Signed For",        "GBP 1.95", "Requires signature on delivery","Up to 100g","2-3 working days"),
-            };
-
-            int sx = 10;
-            foreach (var stamp in stamps)
-            {
-                Panel card = new Panel { Location = new Point(sx, y), Size = new Size(190, 210), BackColor = Color.White };
-                card.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(190, 5), BackColor = Red });
-
-                // Symbol badge
-                Panel badge = new Panel { Location = new Point(10, 14), Size = new Size(170, 50), BackColor = Red };
-                badge.Controls.Add(new Label { Text = stamp.symbol, Font = new Font("Segoe UI", 14, FontStyle.Bold), ForeColor = Color.White, Location = new Point(0, 10), Size = new Size(170, 30), TextAlign = ContentAlignment.MiddleCenter, BackColor = Color.Transparent });
-                card.Controls.Add(badge);
-
-                card.Controls.Add(new Label { Text = stamp.name, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Red, Location = new Point(10, 72), Size = new Size(170, 18) });
-                card.Controls.Add(new Label { Text = stamp.price, Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Color.FromArgb(30, 30, 30), Location = new Point(10, 92), Size = new Size(170, 26) });
-                card.Controls.Add(new Panel { Location = new Point(10, 122), Size = new Size(170, 1), BackColor = Color.FromArgb(220, 220, 220) });
-                card.Controls.Add(new Label { Text = stamp.desc, Font = new Font("Segoe UI", 8), ForeColor = Color.Gray, Location = new Point(10, 128), Size = new Size(170, 18) });
-                card.Controls.Add(new Label { Text = stamp.weight, Font = new Font("Segoe UI", 8), ForeColor = Color.Gray, Location = new Point(10, 148), Size = new Size(170, 18) });
-                card.Controls.Add(new Label { Text = stamp.days, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(20, 100, 50), Location = new Point(10, 168), Size = new Size(170, 18) });
-
-                pnlStamps.Controls.Add(card);
-                sx += 200;
-                if (sx > 1200) { sx = 10; y += 220; }
-            }
-            y += 220;
-
-            // Books of stamps section
-            SH2("Stamp Books -- Better Value", y); y += 40;
-
-            var books = new (string symbol, string name, string price, string saving)[]
-            {
-                ("[x12]", "12 First Class Stamps",  "GBP 12.50", "Save GBP 0.70 vs buying individually"),
-                ("[x12]", "12 Second Class Stamps", "GBP 8.75",  "Save GBP 0.25 vs buying individually"),
-                ("[x25]", "25 Mixed Stamp Sheet",   "GBP 22.00", "Mixed first and second class stamps"),
-            };
-
-            int bx = 10;
-            foreach (var book in books)
-            {
-                Panel bcard = new Panel { Location = new Point(bx, y), Size = new Size(360, 120), BackColor = Color.White };
-                bcard.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(360, 5), BackColor = Red });
-                Panel bbadge = new Panel { Location = new Point(10, 14), Size = new Size(60, 60), BackColor = Red };
-                bbadge.Controls.Add(new Label { Text = book.symbol, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Color.White, Location = new Point(0, 12), Size = new Size(60, 30), TextAlign = ContentAlignment.MiddleCenter, BackColor = Color.Transparent });
-                bcard.Controls.Add(bbadge);
-                bcard.Controls.Add(new Label { Text = book.name, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Red, Location = new Point(80, 16), Size = new Size(270, 20) });
-                bcard.Controls.Add(new Label { Text = book.price + " per book", Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = Color.FromArgb(30, 30, 30), Location = new Point(80, 40), Size = new Size(270, 24) });
-                bcard.Controls.Add(new Label { Text = book.saving, Font = new Font("Segoe UI", 8, FontStyle.Italic), ForeColor = Color.FromArgb(20, 100, 50), Location = new Point(80, 68), Size = new Size(270, 18) });
-                pnlStamps.Controls.Add(bcard);
-                bx += 375;
-            }
-            y += 130;
-
-            // Where to buy section
-            SH2("Where to Buy Stamps -- Click for Directions", y); y += 40;
-
-            Panel buyNote = new Panel { Location = new Point(10, y), Size = new Size(1240, 40), BackColor = Color.FromArgb(255, 245, 220) };
-            buyNote.Controls.Add(new Label { Text = "All locations below sell PostalMS stamps. Click any card to open directions in Google Maps.", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(110, 70, 0), Location = new Point(12, 10), Size = new Size(1200, 20), BackColor = Color.Transparent });
-            pnlStamps.Controls.Add(buyNote);
-            y += 50;
-
-            int lx2 = 10;
-            foreach (var loc in dropOffLocations)
-            {
-                Panel lcard = new Panel { Location = new Point(lx2, y), Size = new Size(295, 100), BackColor = Color.White, Cursor = Cursors.Hand };
-                lcard.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(295, 4), BackColor = Red });
-                lcard.Controls.Add(new Label { Text = loc.name, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Red, Location = new Point(10, 10), Size = new Size(275, 18) });
-                lcard.Controls.Add(new Label { Text = loc.address, Font = new Font("Segoe UI", 8), ForeColor = Color.FromArgb(60, 60, 60), Location = new Point(10, 30), Size = new Size(275, 32) });
-                lcard.Controls.Add(new Label { Text = loc.hours, Font = new Font("Segoe UI", 8, FontStyle.Italic), ForeColor = Color.Gray, Location = new Point(10, 64), Size = new Size(275, 18) });
-
-                string url2 = loc.mapsUrl;
-                lcard.Click += (s, e) => { try { Process.Start(new ProcessStartInfo(url2) { UseShellExecute = true }); } catch { } };
-                foreach (Control child in lcard.Controls)
-                    child.Click += (s, e) => { try { Process.Start(new ProcessStartInfo(url2) { UseShellExecute = true }); } catch { } };
-
-                pnlStamps.Controls.Add(lcard);
-                lx2 += 305;
-                if (lx2 > 1200) { lx2 = 10; y += 110; }
-            }
-        }
-
-        // Section heading helper
+        // Section heading helper for send form
         private void SH(string text, int y)
         {
             pnlSend.Controls.Add(new Label { Text = text, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = Red, Location = new Point(10, y), Size = new Size(800, 24) });
             pnlSend.Controls.Add(new Panel { Location = new Point(10, y + 26), Size = new Size(1240, 1), BackColor = Color.FromArgb(220, 180, 180) });
-        }
-
-        private void SH2(string text, int y)
-        {
-            pnlStamps.Controls.Add(new Label { Text = text, Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = Red, Location = new Point(10, y), Size = new Size(800, 26) });
-            pnlStamps.Controls.Add(new Panel { Location = new Point(10, y + 28), Size = new Size(1240, 1), BackColor = Color.FromArgb(220, 180, 180) });
         }
 
         // Make mail/package type card

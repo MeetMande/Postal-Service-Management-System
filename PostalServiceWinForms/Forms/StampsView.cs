@@ -192,11 +192,10 @@ namespace PostalServiceWinForms.Forms
         // ============================================================
         private void BuildOrder()
         {
+            // Use fixed y positions throughout so nothing overlaps
             int y = 16;
 
-            SH(pnlOrder, "Order Your Stamps", y); y += 40;
-
-            // Step 1 - Choose stamp type and quantity
+            // Step 1 heading
             SH2(pnlOrder, "Step 1 -- Choose Your Stamps", y); y += 36;
 
             pnlOrder.Controls.Add(new Label { Text = "STAMP TYPE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, y), Size = new Size(300, 16) });
@@ -214,17 +213,74 @@ namespace PostalServiceWinForms.Forms
             cboQty.SelectedIndex = 0;
             cboQty.SelectedIndexChanged += (s, e) => RecalcOrder();
             pnlOrder.Controls.Add(cboQty);
-            y += 50;
+            y += 56;
 
-            // Step 2 - Delivery or Pickup
+            // Step 2 heading
             SH2(pnlOrder, "Step 2 -- Delivery or Pickup", y); y += 36;
 
             pnlOrder.Controls.Add(new Label { Text = "HOW WOULD YOU LIKE TO RECEIVE YOUR STAMPS?", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, y), Size = new Size(600, 16) });
             y += 18;
 
-            cboDeliveryType = new ComboBox { Location = new Point(10, y), Size = new Size(360, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
+            cboDeliveryType = new ComboBox { Location = new Point(10, y), Size = new Size(380, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
             cboDeliveryType.Items.AddRange(new object[] { "Home Delivery (GBP 1.50)", "Express Home Delivery (GBP 3.99)", "Click and Collect -- Free Pickup" });
             cboDeliveryType.SelectedIndex = 0;
+            pnlOrder.Controls.Add(cboDeliveryType);
+            y += 54;
+
+            // Delivery address section -- fixed position below the dropdown
+            int detailY = y;
+            pnlDeliverySection = new Panel
+            {
+                Location = new Point(10, detailY),
+                Size = new Size(1240, 200),
+                BackColor = Color.FromArgb(248, 248, 248),
+                Visible = true
+            };
+            pnlOrder.Controls.Add(pnlDeliverySection);
+
+            pnlDeliverySection.Controls.Add(new Label { Text = "YOUR FULL NAME", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 10), Size = new Size(300, 16) });
+            txtOrderName = new TextBox { Location = new Point(10, 28), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlDeliverySection.Controls.Add(txtOrderName);
+
+            pnlDeliverySection.Controls.Add(new Label { Text = "DELIVERY ADDRESS", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 72), Size = new Size(300, 16) });
+            txtOrderAddress = new TextBox { Location = new Point(10, 90), Size = new Size(900, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlDeliverySection.Controls.Add(txtOrderAddress);
+
+            pnlDeliverySection.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 134), Size = new Size(400, 16) });
+            txtOrderEmail = new TextBox { Location = new Point(10, 152), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlDeliverySection.Controls.Add(txtOrderEmail);
+
+            // Pickup section -- same fixed position, hidden by default
+            pnlPickupSection = new Panel
+            {
+                Location = new Point(10, detailY),
+                Size = new Size(1240, 220),
+                BackColor = Color.FromArgb(248, 248, 248),
+                Visible = false
+            };
+            pnlOrder.Controls.Add(pnlPickupSection);
+
+            pnlPickupSection.Controls.Add(new Label { Text = "SELECT PICKUP LOCATION", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 10), Size = new Size(400, 16) });
+            cboPickupLocation = new ComboBox { Location = new Point(10, 28), Size = new Size(900, 34), Font = new Font("Segoe UI", 10), DropDownStyle = ComboBoxStyle.DropDownList };
+            foreach (string loc in pickupLocations) cboPickupLocation.Items.Add(loc);
+            cboPickupLocation.SelectedIndex = 0;
+            pnlPickupSection.Controls.Add(cboPickupLocation);
+
+            pnlPickupSection.Controls.Add(new Label { Text = "SELECT PICKUP DATE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 72), Size = new Size(200, 16) });
+            var dtPickup = new DateTimePicker { Location = new Point(10, 90), Size = new Size(260, 34), Font = new Font("Segoe UI", 11), MinDate = DateTime.Today.AddDays(1), MaxDate = DateTime.Today.AddDays(14) };
+            pnlPickupSection.Controls.Add(dtPickup);
+
+            pnlPickupSection.Controls.Add(new Label { Text = "SELECT TIME SLOT", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(290, 72), Size = new Size(200, 16) });
+            cboPickupTime = new ComboBox { Location = new Point(290, 90), Size = new Size(240, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
+            foreach (string t in pickupTimes) cboPickupTime.Items.Add(t);
+            cboPickupTime.SelectedIndex = 0;
+            pnlPickupSection.Controls.Add(cboPickupTime);
+
+            pnlPickupSection.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 134), Size = new Size(400, 16) });
+            var txtPickupEmail = new TextBox { Location = new Point(10, 152), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle, Name = "txtPickupEmail" };
+            pnlPickupSection.Controls.Add(txtPickupEmail);
+
+            // Wire up delivery type toggle
             cboDeliveryType.SelectedIndexChanged += (s, e) =>
             {
                 bool isPickup = cboDeliveryType.SelectedIndex == 2;
@@ -232,66 +288,24 @@ namespace PostalServiceWinForms.Forms
                 pnlPickupSection.Visible = isPickup;
                 RecalcOrder();
             };
-            pnlOrder.Controls.Add(cboDeliveryType);
-            y += 50;
 
-            // Delivery address section
-            pnlDeliverySection = new Panel { Location = new Point(10, y), Size = new Size(1240, 160), BackColor = Color.FromArgb(250, 250, 250), Visible = true };
-            pnlOrder.Controls.Add(pnlDeliverySection);
-
-            pnlDeliverySection.Controls.Add(new Label { Text = "YOUR FULL NAME", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(0, 0), Size = new Size(300, 16) });
-            txtOrderName = new TextBox { Location = new Point(0, 18), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
-            pnlDeliverySection.Controls.Add(txtOrderName);
-
-            pnlDeliverySection.Controls.Add(new Label { Text = "DELIVERY ADDRESS", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(0, 58), Size = new Size(300, 16) });
-            txtOrderAddress = new TextBox { Location = new Point(0, 76), Size = new Size(900, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
-            pnlDeliverySection.Controls.Add(txtOrderAddress);
-
-            pnlDeliverySection.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(0, 116), Size = new Size(400, 16) });
-            txtOrderEmail = new TextBox { Location = new Point(0, 134), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
-            pnlDeliverySection.Controls.Add(txtOrderEmail);
-            y += 170;
-
-            // Pickup section
-            pnlPickupSection = new Panel { Location = new Point(10, y - 170), Size = new Size(1240, 170), BackColor = Color.FromArgb(250, 250, 250), Visible = false };
-            pnlOrder.Controls.Add(pnlPickupSection);
-
-            pnlPickupSection.Controls.Add(new Label { Text = "SELECT PICKUP LOCATION", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(0, 0), Size = new Size(400, 16) });
-            cboPickupLocation = new ComboBox { Location = new Point(0, 18), Size = new Size(800, 34), Font = new Font("Segoe UI", 10), DropDownStyle = ComboBoxStyle.DropDownList };
-            foreach (string loc in pickupLocations) cboPickupLocation.Items.Add(loc);
-            cboPickupLocation.SelectedIndex = 0;
-            pnlPickupSection.Controls.Add(cboPickupLocation);
-
-            pnlPickupSection.Controls.Add(new Label { Text = "SELECT PICKUP DATE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(0, 58), Size = new Size(300, 16) });
-            var dtPickup = new DateTimePicker { Location = new Point(0, 76), Size = new Size(300, 34), Font = new Font("Segoe UI", 11), MinDate = DateTime.Today.AddDays(1), MaxDate = DateTime.Today.AddDays(14) };
-            pnlPickupSection.Controls.Add(dtPickup);
-
-            pnlPickupSection.Controls.Add(new Label { Text = "SELECT PICKUP TIME SLOT", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(320, 58), Size = new Size(300, 16) });
-            cboPickupTime = new ComboBox { Location = new Point(320, 76), Size = new Size(260, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
-            foreach (string t in pickupTimes) cboPickupTime.Items.Add(t);
-            cboPickupTime.SelectedIndex = 0;
-            pnlPickupSection.Controls.Add(cboPickupTime);
-
-            pnlPickupSection.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(0, 120), Size = new Size(400, 16) });
-            var txtPickupEmail = new TextBox { Location = new Point(0, 138), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle, Name = "txtPickupEmail" };
-            pnlPickupSection.Controls.Add(txtPickupEmail);
-
-            // Step 3 - Price breakdown
+            // Step 3 - Price breakdown -- fixed position BELOW both sections
+            y = detailY + 230;
             SH2(pnlOrder, "Step 3 -- Price Breakdown", y); y += 36;
 
-            Panel priceBox = new Panel { Location = new Point(10, y), Size = new Size(500, 180), BackColor = Color.White };
-            priceBox.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(500, 5), BackColor = Red });
-            lblOrderBreakdown = new Label { Location = new Point(14, 14), Size = new Size(472, 120), Font = new Font("Segoe UI", 10), ForeColor = Dark, BackColor = Color.Transparent };
+            Panel priceBox = new Panel { Location = new Point(10, y), Size = new Size(560, 190), BackColor = Color.White };
+            priceBox.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(560, 5), BackColor = Red });
+            lblOrderBreakdown = new Label { Location = new Point(14, 14), Size = new Size(532, 130), Font = new Font("Segoe UI", 10), ForeColor = Dark, BackColor = Color.Transparent };
             priceBox.Controls.Add(lblOrderBreakdown);
-            priceBox.Controls.Add(new Panel { Location = new Point(14, 138), Size = new Size(472, 1), BackColor = Color.FromArgb(220, 220, 220) });
-            lblOrderTotal = new Label { Location = new Point(14, 144), Size = new Size(472, 28), Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Red, BackColor = Color.Transparent };
+            priceBox.Controls.Add(new Panel { Location = new Point(14, 148), Size = new Size(532, 1), BackColor = Color.FromArgb(220, 220, 220) });
+            lblOrderTotal = new Label { Location = new Point(14, 155), Size = new Size(532, 28), Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Red, BackColor = Color.Transparent };
             priceBox.Controls.Add(lblOrderTotal);
             pnlOrder.Controls.Add(priceBox);
-            y += 190;
+            y += 200;
 
-            // Info note about expected delivery
-            Panel infoNote = new Panel { Location = new Point(10, y), Size = new Size(800, 46), BackColor = Color.FromArgb(235, 245, 255) };
-            infoNote.Controls.Add(new Label { Text = "Home Delivery: 2-3 working days  |  Express Delivery: Next working day  |  Click and Collect: From selected date", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(20, 60, 140), Location = new Point(12, 14), Size = new Size(776, 18), BackColor = Color.Transparent });
+            // Info note
+            Panel infoNote = new Panel { Location = new Point(10, y), Size = new Size(900, 46), BackColor = Color.FromArgb(235, 245, 255) };
+            infoNote.Controls.Add(new Label { Text = "Home Delivery: 2-3 working days  |  Express: Next working day  |  Click and Collect: From selected date", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(20, 60, 140), Location = new Point(12, 14), Size = new Size(876, 18), BackColor = Color.Transparent });
             pnlOrder.Controls.Add(infoNote);
             y += 56;
 
@@ -302,7 +316,6 @@ namespace PostalServiceWinForms.Forms
             btnPlaceOrder.MouseLeave += (s, e) => btnPlaceOrder.BackColor = Red;
             btnPlaceOrder.Click += (s, e) =>
             {
-                // Validate
                 bool isPickup = cboDeliveryType.SelectedIndex == 2;
                 string email = isPickup
                     ? (pnlPickupSection.Controls["txtPickupEmail"] as TextBox)?.Text.Trim() ?? ""
@@ -311,13 +324,12 @@ namespace PostalServiceWinForms.Forms
                 if (!email.EndsWith("@gmail.com") || email.Length <= "@gmail.com".Length)
                 { MessageBox.Show("Please enter a valid Gmail address.", "Invalid Email", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
 
-                if (!isPickup && string.IsNullOrWhiteSpace(txtOrderName.Text))
+                if (!isPickup && string.IsNullOrWhiteSpace(txtOrderName?.Text))
                 { MessageBox.Show("Please enter your full name.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
 
-                if (!isPickup && string.IsNullOrWhiteSpace(txtOrderAddress.Text))
+                if (!isPickup && string.IsNullOrWhiteSpace(txtOrderAddress?.Text))
                 { MessageBox.Show("Please enter your delivery address.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
 
-                // Create order
                 string orderId = "STO-" + DateTime.Now.ToString("yyyyMMddHHmmss");
                 string type = cboStampType.SelectedItem.ToString();
                 int qty = Convert.ToInt32(cboQty.SelectedItem);
