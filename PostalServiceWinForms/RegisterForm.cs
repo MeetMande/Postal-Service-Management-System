@@ -14,7 +14,7 @@ namespace PostalServiceWinForms
 {
     public class RegisterForm : Form
     {
-        private TextBox txtName, txtPhone, txtEmail, txtAddress, txtPostCode, txtPass, txtConfirm;
+        private TextBox txtName, txtPhone, txtEmail, txtAddress, txtPostCode, txtCity, txtPass, txtConfirm;
         private DatabaseHelper db;
         private Color Red = Color.FromArgb(180, 30, 30);
         private Color DarkRed = Color.FromArgb(140, 20, 20);
@@ -84,9 +84,10 @@ namespace PostalServiceWinForms
             AL(right, "HOME ADDRESS", 70, y); y += 18;
             txtAddress = ATB(right, "123 Main Street, London", 70, y, 560); y += 50;
 
-            // Postcode
-            AL(right, "POSTCODE", 70, y); y += 18;
-            txtPostCode = ATB(right, "N1 2AB", 70, y, 200); y += 50;
+            // Postcode and City
+            AL(right, "POSTCODE", 70, y); AL(right, "YOUR CITY", 290, y); y += 18;
+            txtPostCode = ATB(right, "N1 2AB", 70, y, 200);
+            txtCity = ATB(right, "London", 290, y, 200); y += 50;
 
             // Password and Confirm
             AL(right, "PASSWORD", 70, y); AL(right, "CONFIRM PASSWORD", 350, y); y += 18;
@@ -160,7 +161,7 @@ namespace PostalServiceWinForms
             // Register user
             string uid = "USER-" + (db.GetUserCount() + 1).ToString("D3");
             string res = db.RegisterUser(uid, txtName.Text.Trim(), txtEmail.Text.Trim(),
-                txtPhone.Text.Trim(), txtAddress.Text.Trim(), txtPostCode.Text.Trim(), "Customer", txtPass.Text);
+                txtPhone.Text.Trim(), txtAddress.Text.Trim(), txtPostCode.Text.Trim(), "Customer", txtPass.Text, txtCity.Text.Trim());
 
             MessageBox.Show(res, "Registration", MessageBoxButtons.OK, MessageBoxIcon.Information);
             if (res.Contains("successfully")) this.Close();

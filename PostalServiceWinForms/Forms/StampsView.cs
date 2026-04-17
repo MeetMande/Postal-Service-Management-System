@@ -288,36 +288,53 @@ namespace PostalServiceWinForms.Forms
             txtDeliveryEmail = new TextBox { Location = new Point(580, 214), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
             pnlDeliveryDetails.Controls.AddRange(new Control[] { txtDeliveryCity, txtDeliveryPost, txtDeliveryEmail });
 
-            // Collect details panel
-            pnlCollectDetails = new Panel { Location = new Point(10, detailY), Size = new Size(1240, 270), BackColor = Color.FromArgb(250, 250, 250), Visible = false };
+            // Collect details panel - increased height for extra fields
+            pnlCollectDetails = new Panel { Location = new Point(10, detailY), Size = new Size(1240, 420), BackColor = Color.FromArgb(250, 250, 250), Visible = false };
             pnlOrder.Controls.Add(pnlCollectDetails);
 
-            pnlCollectDetails.Controls.Add(new Label { Text = "SELECT LOCATION", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 10), Size = new Size(400, 16) });
-            cboPickupLocation = new ComboBox { Location = new Point(10, 28), Size = new Size(900, 34), Font = new Font("Segoe UI", 10), DropDownStyle = ComboBoxStyle.DropDownList };
+            // Row 1 - Full name and phone
+            pnlCollectDetails.Controls.Add(new Label { Text = "FULL NAME", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 10), Size = new Size(300, 16) });
+            pnlCollectDetails.Controls.Add(new Label { Text = "PHONE NUMBER", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(480, 10), Size = new Size(300, 16) });
+            var txtCollectName = new TextBox { Location = new Point(10, 28), Size = new Size(460, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle, Name = "txtCollectName" };
+            var txtCollectPhone = new TextBox { Location = new Point(480, 28), Size = new Size(360, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle, Name = "txtCollectPhone" };
+            pnlCollectDetails.Controls.AddRange(new Control[] { txtCollectName, txtCollectPhone });
+
+            // Row 2 - Date of birth
+            pnlCollectDetails.Controls.Add(new Label { Text = "DATE OF BIRTH (DD/MM/YYYY)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 72), Size = new Size(300, 16) });
+            var txtCollectDOB = new TextBox { Location = new Point(10, 90), Size = new Size(260, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle, Name = "txtCollectDOB", Text = "DD/MM/YYYY", ForeColor = Color.LightGray };
+            txtCollectDOB.Enter += (s, e) => { if (txtCollectDOB.ForeColor == Color.LightGray) { txtCollectDOB.Text = ""; txtCollectDOB.ForeColor = Color.Black; } };
+            txtCollectDOB.Leave += (s, e) => { if (txtCollectDOB.Text == "") { txtCollectDOB.Text = "DD/MM/YYYY"; txtCollectDOB.ForeColor = Color.LightGray; } };
+            pnlCollectDetails.Controls.Add(txtCollectDOB);
+
+            // Row 3 - Location
+            pnlCollectDetails.Controls.Add(new Label { Text = "SELECT COLLECTION LOCATION", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 134), Size = new Size(400, 16) });
+            cboPickupLocation = new ComboBox { Location = new Point(10, 152), Size = new Size(900, 34), Font = new Font("Segoe UI", 10), DropDownStyle = ComboBoxStyle.DropDownList };
             foreach (string loc in pickupLocations) cboPickupLocation.Items.Add(loc);
             cboPickupLocation.SelectedIndex = 0;
             pnlCollectDetails.Controls.Add(cboPickupLocation);
 
-            pnlCollectDetails.Controls.Add(new Label { Text = "COLLECTION DATE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 72), Size = new Size(200, 16) });
-            dtPickup = new DateTimePicker { Location = new Point(10, 90), Size = new Size(280, 34), Font = new Font("Segoe UI", 11), MinDate = DateTime.Today.AddDays(1), MaxDate = DateTime.Today.AddDays(14) };
+            // Row 4 - Date and time
+            pnlCollectDetails.Controls.Add(new Label { Text = "COLLECTION DATE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 196), Size = new Size(200, 16) });
+            dtPickup = new DateTimePicker { Location = new Point(10, 214), Size = new Size(280, 34), Font = new Font("Segoe UI", 11), MinDate = DateTime.Today.AddDays(1), MaxDate = DateTime.Today.AddDays(14) };
             pnlCollectDetails.Controls.Add(dtPickup);
 
-            pnlCollectDetails.Controls.Add(new Label { Text = "TIME SLOT", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(310, 72), Size = new Size(200, 16) });
-            cboPickupTime = new ComboBox { Location = new Point(310, 90), Size = new Size(260, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
+            pnlCollectDetails.Controls.Add(new Label { Text = "TIME SLOT", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(310, 196), Size = new Size(200, 16) });
+            cboPickupTime = new ComboBox { Location = new Point(310, 214), Size = new Size(260, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
             foreach (string t in pickupTimes) cboPickupTime.Items.Add(t);
             cboPickupTime.SelectedIndex = 0;
             pnlCollectDetails.Controls.Add(cboPickupTime);
 
             // Missed pickup warning
-            Panel missedWarn = new Panel { Location = new Point(10, 134), Size = new Size(900, 50), BackColor = Color.FromArgb(255, 245, 220) };
+            Panel missedWarn = new Panel { Location = new Point(10, 258), Size = new Size(900, 50), BackColor = Color.FromArgb(255, 245, 220) };
             missedWarn.Controls.Add(new Label { Text = "If you miss your collection slot:\n-- Your order is held for 48 hours. After 48 hours it is automatically rescheduled to the next available slot at the same location.", Font = new Font("Segoe UI", 8), ForeColor = Color.FromArgb(140, 80, 0), Location = new Point(10, 6), Size = new Size(880, 38), BackColor = Color.Transparent });
             pnlCollectDetails.Controls.Add(missedWarn);
 
-            pnlCollectDetails.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 194), Size = new Size(400, 16) });
-            txtCollectEmail = new TextBox { Location = new Point(10, 212), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            // Row 5 - Email
+            pnlCollectDetails.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 318), Size = new Size(400, 16) });
+            txtCollectEmail = new TextBox { Location = new Point(10, 336), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
             pnlCollectDetails.Controls.Add(txtCollectEmail);
 
-            y = detailY + 280;
+            y = detailY + 430;
 
             // ---- STEP 4: Payment ----
             SH2(pnlOrder, "Step 4 -- How would you like to pay?", y); y += 36;

@@ -117,7 +117,7 @@ namespace PostalServiceWinForms
         public void ShowParcels() { Clear(); pnlContent.Controls.Add(new ParcelsView(UserID, UserName, DB)); }
         public void ShowDeliveries() { Clear(); pnlContent.Controls.Add(new DeliveriesView(UserID, DB)); }
         public void ShowStamps() { Clear(); pnlContent.Controls.Add(new StampsView()); }
-        public void ShowFindUs() { Clear(); pnlContent.Controls.Add(new FindUsView()); }
+        public void ShowFindUs() { Clear(); pnlContent.Controls.Add(new FindUsView(UserID, DB)); }
         public void ShowHelp() { Clear(); pnlContent.Controls.Add(new HelpView()); }
         public void ShowInfo() { Clear(); pnlContent.Controls.Add(new InfoView()); }
         public void ShowProfile() { Clear(); pnlContent.Controls.Add(new ProfileView(UserID, UserEmail, DB)); }

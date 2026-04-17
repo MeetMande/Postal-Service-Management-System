@@ -83,7 +83,7 @@ namespace PostalServiceWinForms
             catch (Exception ex) { DataTable dt = new DataTable(); dt.Columns.Add("Message"); dt.Rows.Add("Error: " + ex.Message); return dt; }
         }
 
-        public string RegisterUser(string uid, string name, string email, string phone, string addr, string post, string role, string pwd)
+        public string RegisterUser(string uid, string name, string email, string phone, string addr, string post, string role, string pwd, string city = "London")
         {
             try
             {
@@ -94,6 +94,7 @@ namespace PostalServiceWinForms
                     cmd.Parameters.AddWithValue("@email", email); cmd.Parameters.AddWithValue("@phone", phone);
                     cmd.Parameters.AddWithValue("@address", addr); cmd.Parameters.AddWithValue("@postCode", post);
                     cmd.Parameters.AddWithValue("@role", role); cmd.Parameters.AddWithValue("@password", pwd);
+                    cmd.Parameters.AddWithValue("@city", string.IsNullOrEmpty(city) ? "London" : city);
                     return cmd.ExecuteScalar()?.ToString() ?? "Account created successfully";
                 }
             }
