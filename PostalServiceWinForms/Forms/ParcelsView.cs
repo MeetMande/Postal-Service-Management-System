@@ -85,9 +85,9 @@ namespace PostalServiceWinForms.Forms
 
         private void Build()
         {
-            // Top navigation bar
-            Panel topBar = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = Color.White };
-            topBar.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Color.FromArgb(218, 218, 218)), 0, 51, topBar.Width, 51);
+            // Top navigation bar - increased height so buttons dont overlap main nav
+            Panel topBar = new Panel { Dock = DockStyle.Top, Height = 72, BackColor = Color.White };
+            topBar.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Color.FromArgb(218, 218, 218)), 0, 71, topBar.Width, 71);
             this.Controls.Add(topBar);
 
             topBar.Controls.Add(new Label
@@ -95,7 +95,7 @@ namespace PostalServiceWinForms.Forms
                 Text = "Parcels",
                 Font = new Font("Segoe UI", 14, FontStyle.Bold),
                 ForeColor = Red,
-                Location = new Point(10, 12),
+                Location = new Point(10, 22),
                 Size = new Size(115, 28)
             });
 
@@ -103,7 +103,7 @@ namespace PostalServiceWinForms.Forms
             btnList = new Button
             {
                 Text = "My Parcels",
-                Location = new Point(132, 8),
+                Location = new Point(132, 18),
                 Size = new Size(140, 36),
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 BackColor = Red,
@@ -119,7 +119,7 @@ namespace PostalServiceWinForms.Forms
             btnSend = new Button
             {
                 Text = "Send Mail or Package",
-                Location = new Point(280, 8),
+                Location = new Point(280, 18),
                 Size = new Size(210, 36),
                 Font = new Font("Segoe UI", 10),
                 BackColor = Color.FromArgb(240, 240, 240),
@@ -136,7 +136,7 @@ namespace PostalServiceWinForms.Forms
             btnStampsTab = new Button
             {
                 Text = "Buy Stamps",
-                Location = new Point(498, 8),
+                Location = new Point(498, 18),
                 Size = new Size(140, 36),
                 Font = new Font("Segoe UI", 10),
                 BackColor = Color.FromArgb(240, 240, 240),
