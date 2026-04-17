@@ -2,9 +2,10 @@
 // PostalMS - Postal Service Management System
 // CST2550 Coursework - Middlesex University
 //
-// Parcels page - shows user's parcels and send form.
-// Dashboard removed - parcels are shown directly in a clean grid.
-// Drop-off location and navigation instructions added.
+// Parcels page - My Parcels list and Send form.
+// Dashboard removed - parcels shown in clean grid.
+// Stamps section added with prices and symbols.
+// Drop off locations open in Google Maps (free, no API key needed).
 // Price formula: (ServicePrice + Weight * 1.2) * SizeMultiplier * InternationalMultiplier
 
 using System;
@@ -12,6 +13,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using System.Data;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace PostalServiceWinForms.Forms
 {
@@ -23,8 +25,8 @@ namespace PostalServiceWinForms.Forms
         // Send form controls
         private TextBox txtRcvName, txtRcvAddr, txtWeight, txtSenderEmail;
         private ComboBox cboSize, cboCountry;
-        private Label lblPrice, lblTrackGen, lblEstDays, lblDropOff;
-        private Panel pnlIntlSection, pnlDropOff;
+        private Label lblPrice, lblTrackGen, lblEstDays;
+        private Panel pnlIntlSection;
         private RadioButton rbDomestic, rbInternational;
 
         // Mail vs Package selection
@@ -39,8 +41,8 @@ namespace PostalServiceWinForms.Forms
         private int pkgSvcIndex = 0;
 
         // Main panels
-        private Panel pnlList, pnlSend;
-        private Button btnList, btnSend;
+        private Panel pnlList, pnlSend, pnlStamps;
+        private Button btnList, btnSend, btnStampsTab;
 
         private DatabaseHelper db;
         private string userID, userName;
@@ -48,13 +50,17 @@ namespace PostalServiceWinForms.Forms
         private Color DarkRed = Color.FromArgb(140, 20, 20);
         private Color Bg = Color.FromArgb(245, 245, 245);
 
-        // Drop off locations for domestic parcels
-        private string[] dropOffLocations = {
-            "PostalMS Hub - 1 Station Road, London N1 9AA  (Mon-Sat 8am-8pm)",
-            "PostalMS Express - 45 High Street, London EC1A 1AA  (Mon-Fri 9am-6pm)",
-            "PostalMS North - 12 Market Square, London N7 6JN  (Mon-Sat 8am-7pm)",
-            "PostalMS South - 88 Brixton Road, London SW9 8PQ  (Mon-Sat 9am-8pm)",
-            "PostalMS West - 22 Shepherd's Bush Road, London W6 7PH  (Mon-Fri 8am-6pm)",
+        // Drop off locations with Google Maps links
+        private (string name, string address, string hours, string mapsUrl)[] dropOffLocations =
+        {
+            ("PostalMS Hendon Centre",   "The Burroughs, Hendon, London NW4 4BT",          "Mon-Fri 9am-5:30pm, Sat 9am-1pm", "https://maps.google.com/?q=The+Burroughs+Hendon+London+NW4+4BT"),
+            ("PostalMS Cat Hill Centre", "Cat Hill, East Barnet, London EN4 8HT",           "Mon-Fri 9am-5:30pm, Sat 9am-1pm", "https://maps.google.com/?q=Cat+Hill+East+Barnet+London+EN4+8HT"),
+            ("PostalMS Archway Point",   "2 Junction Road, Archway, London N19 5QU",        "Mon-Fri 9am-6pm, Sat 10am-2pm",   "https://maps.google.com/?q=2+Junction+Road+Archway+London+N19+5QU"),
+            ("PostalMS Wembley Centre",  "Engineers Way, Wembley, London HA9 0ED",          "Mon-Fri 9am-5:30pm, Sat 9am-1pm", "https://maps.google.com/?q=Engineers+Way+Wembley+London+HA9+0ED"),
+            ("WH Smith Brent Cross",     "Brent Cross Shopping Centre, London NW4 3FP",     "Mon-Sat 9am-8pm, Sun 11am-5pm",   "https://maps.google.com/?q=Brent+Cross+Shopping+Centre+London+NW4+3FP"),
+            ("Tesco Golders Green",      "186 Golders Green Road, London NW11 9AA",         "Open daily 7am-11pm",             "https://maps.google.com/?q=186+Golders+Green+Road+London+NW11+9AA"),
+            ("PostalMS Archway Shop",    "12 Holloway Road, London N7 8JH",                 "Mon-Sat 8am-7pm",                 "https://maps.google.com/?q=12+Holloway+Road+London+N7+8JH"),
+            ("Rymans Stationers",        "44 Finchley Road, London NW3 5EL",                "Mon-Sat 9am-6pm",                 "https://maps.google.com/?q=44+Finchley+Road+London+NW3+5EL"),
         };
 
         // International countries with zone multiplier and estimated days
@@ -62,10 +68,11 @@ namespace PostalServiceWinForms.Forms
         {
             {"France",(1.8,5)},{"Germany",(1.8,5)},{"Spain",(1.8,5)},{"Italy",(1.8,5)},
             {"Ireland",(1.8,4)},{"Netherlands",(1.8,5)},{"Belgium",(1.8,5)},{"Portugal",(1.8,6)},
-            {"Poland",(2.2,7)},{"Sweden",(2.2,7)},{"Norway",(2.2,6)},{"United States",(3.0,10)},
-            {"Canada",(3.0,10)},{"Australia",(3.8,14)},{"New Zealand",(3.8,14)},
-            {"Japan",(3.8,12)},{"China",(3.5,12)},{"India",(3.2,12)},
-            {"UAE",(2.8,8)},{"South Africa",(3.5,14)},{"Brazil",(3.8,16)},
+            {"Poland",(2.2,7)},{"Sweden",(2.2,7)},{"Norway",(2.2,6)},{"Denmark",(2.2,6)},
+            {"United States",(3.0,10)},{"Canada",(3.0,10)},{"Mexico",(3.2,12)},
+            {"Australia",(3.8,14)},{"New Zealand",(3.8,14)},{"Japan",(3.8,12)},
+            {"China",(3.5,12)},{"India",(3.2,12)},{"UAE",(2.8,8)},
+            {"South Africa",(3.5,14)},{"Brazil",(3.8,16)},{"Singapore",(3.5,10)},
         };
 
         public ParcelsView(string uid, string name, DatabaseHelper dbHelper)
@@ -78,7 +85,7 @@ namespace PostalServiceWinForms.Forms
 
         private void Build()
         {
-            // Top bar with navigation buttons
+            // Top navigation bar
             Panel topBar = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = Color.White };
             topBar.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Color.FromArgb(218, 218, 218)), 0, 51, topBar.Width, 51);
             this.Controls.Add(topBar);
@@ -92,12 +99,12 @@ namespace PostalServiceWinForms.Forms
                 Size = new Size(115, 28)
             });
 
-            // My Parcels button
+            // My Parcels tab button
             btnList = new Button
             {
-                Text = "  My Parcels",
+                Text = "My Parcels",
                 Location = new Point(132, 8),
-                Size = new Size(160, 36),
+                Size = new Size(140, 36),
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 BackColor = Red,
                 ForeColor = Color.White,
@@ -108,12 +115,12 @@ namespace PostalServiceWinForms.Forms
             btnList.Click += (s, e) => Switch("list");
             topBar.Controls.Add(btnList);
 
-            // Send Mail or Package button
+            // Send Mail or Package tab button
             btnSend = new Button
             {
-                Text = "  Send Mail or Package",
-                Location = new Point(300, 8),
-                Size = new Size(225, 36),
+                Text = "Send Mail or Package",
+                Location = new Point(280, 8),
+                Size = new Size(210, 36),
                 Font = new Font("Segoe UI", 10),
                 BackColor = Color.FromArgb(240, 240, 240),
                 ForeColor = Red,
@@ -125,7 +132,24 @@ namespace PostalServiceWinForms.Forms
             btnSend.Click += (s, e) => Switch("send");
             topBar.Controls.Add(btnSend);
 
-            // Parcel list panel
+            // Stamps tab button
+            btnStampsTab = new Button
+            {
+                Text = "Buy Stamps",
+                Location = new Point(498, 8),
+                Size = new Size(140, 36),
+                Font = new Font("Segoe UI", 10),
+                BackColor = Color.FromArgb(240, 240, 240),
+                ForeColor = Red,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            btnStampsTab.FlatAppearance.BorderColor = Color.FromArgb(210, 190, 190);
+            btnStampsTab.FlatAppearance.BorderSize = 1;
+            btnStampsTab.Click += (s, e) => Switch("stamps");
+            topBar.Controls.Add(btnStampsTab);
+
+            // My Parcels panel
             pnlList = new Panel { Dock = DockStyle.Fill, BackColor = Bg, Visible = true };
             this.Controls.Add(pnlList);
             BuildParcelList();
@@ -135,26 +159,41 @@ namespace PostalServiceWinForms.Forms
             this.Controls.Add(pnlSend);
             BuildSendForm();
 
+            // Stamps panel
+            pnlStamps = new Panel { Dock = DockStyle.Fill, BackColor = Bg, AutoScroll = true, Visible = false };
+            this.Controls.Add(pnlStamps);
+            BuildStampsPanel();
+
             RefreshParcels();
         }
 
-        // Switch between My Parcels and Send form
+        // Switch between tabs
         private void Switch(string which)
         {
-            bool isList = which == "list";
-            if (isList) pnlList.BringToFront(); else pnlSend.BringToFront();
-            pnlList.Visible = isList; pnlSend.Visible = !isList;
-            btnList.BackColor = isList ? Red : Color.FromArgb(240, 240, 240);
-            btnList.ForeColor = isList ? Color.White : Red;
-            btnSend.BackColor = isList ? Color.FromArgb(240, 240, 240) : Red;
-            btnSend.ForeColor = isList ? Red : Color.White;
-            if (isList) RefreshParcels(); else RefreshTrackID();
+            pnlList.Visible = which == "list";
+            pnlSend.Visible = which == "send";
+            pnlStamps.Visible = which == "stamps";
+
+            if (which == "list") pnlList.BringToFront();
+            if (which == "send") pnlSend.BringToFront();
+            if (which == "stamps") pnlStamps.BringToFront();
+
+            btnList.BackColor = which == "list" ? Red : Color.FromArgb(240, 240, 240);
+            btnList.ForeColor = which == "list" ? Color.White : Red;
+            btnSend.BackColor = which == "send" ? Red : Color.FromArgb(240, 240, 240);
+            btnSend.ForeColor = which == "send" ? Color.White : Red;
+            btnStampsTab.BackColor = which == "stamps" ? Red : Color.FromArgb(240, 240, 240);
+            btnStampsTab.ForeColor = which == "stamps" ? Color.White : Red;
+
+            if (which == "list") RefreshParcels();
+            if (which == "send") RefreshTrackID();
         }
 
-        // Build the parcel list section
+        // ============================================================
+        // MY PARCELS LIST
+        // ============================================================
         private void BuildParcelList()
         {
-            // Page heading
             pnlList.Controls.Add(new Label
             {
                 Text = "All My Parcels",
@@ -212,7 +251,7 @@ namespace PostalServiceWinForms.Forms
             dgvParcels.SelectionChanged += DgvSelect;
             pnlList.Controls.Add(dgvParcels);
 
-            // Detail panel shown when row selected
+            // Detail panel
             Panel det = new Panel
             {
                 Location = new Point(0, 580),
@@ -226,23 +265,16 @@ namespace PostalServiceWinForms.Forms
 
         private void RefreshParcels()
         {
-            try
-            {
-                dgvParcels.DataSource = db.GetParcelsByCustomer(userID);
-                HideColumns();
-            }
+            try { dgvParcels.DataSource = db.GetParcelsByCustomer(userID); HideColumns(); }
             catch { }
         }
 
         private void HideColumns()
         {
-            // Hide internal columns not needed by the user
             string[] hide = { "IsInternational", "RefundRequested", "RefundReason", "CustomerID", "SenderAddress", "ReceiverAddress" };
             foreach (string col in hide)
                 if (dgvParcels.Columns.Contains(col))
                     dgvParcels.Columns[col].Visible = false;
-
-            // Format date and price columns
             if (dgvParcels.Columns.Contains("DateSent"))
                 dgvParcels.Columns["DateSent"].DefaultCellStyle.Format = "dd/MM/yyyy";
             if (dgvParcels.Columns.Contains("EstimatedDelivery"))
@@ -268,7 +300,6 @@ namespace PostalServiceWinForms.Forms
             catch { }
         }
 
-        // Show parcel detail when row is selected
         private void DgvSelect(object sender, EventArgs e)
         {
             if (dgvParcels.CurrentRow == null) return;
@@ -284,17 +315,8 @@ namespace PostalServiceWinForms.Forms
             string tid = row.Cells["TrackingID"].Value?.ToString() ?? "--";
             string st = row.Cells["Status"].Value?.ToString() ?? "--";
 
-            // Detail heading
-            det.Controls.Add(new Label
-            {
-                Text = "Details -- " + tid,
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                ForeColor = Red,
-                Location = new Point(14, 10),
-                Size = new Size(500, 24)
-            });
+            det.Controls.Add(new Label { Text = "Details -- " + tid, Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = Red, Location = new Point(14, 10), Size = new Size(500, 24) });
 
-            // Detail rows
             void DR(string l, string v, int x, int y2)
             {
                 det.Controls.Add(new Label { Text = l, Font = new Font("Segoe UI", 9), ForeColor = Color.Gray, Location = new Point(x, y2), Size = new Size(160, 18) });
@@ -316,7 +338,7 @@ namespace PostalServiceWinForms.Forms
                 bool done = i <= cur;
                 det.Controls.Add(new Label
                 {
-                    Text = (done ? "OK " : "- ") + stages[i],
+                    Text = (done ? "OK " : "-- ") + stages[i],
                     Font = new Font("Segoe UI", 9, done ? FontStyle.Bold : FontStyle.Regular),
                     ForeColor = done ? Color.FromArgb(20, 130, 65) : Color.LightGray,
                     Location = new Point(240 + i * 248, 108),
@@ -327,17 +349,7 @@ namespace PostalServiceWinForms.Forms
             // Refund button
             if (st == "Failed" || st == "Delivered")
             {
-                Button br = new Button
-                {
-                    Text = "Request Refund",
-                    Location = new Point(1056, 106),
-                    Size = new Size(150, 36),
-                    Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                    BackColor = Red,
-                    ForeColor = Color.White,
-                    FlatStyle = FlatStyle.Flat,
-                    Cursor = Cursors.Hand
-                };
+                Button br = new Button { Text = "Request Refund", Location = new Point(1056, 106), Size = new Size(150, 36), Font = new Font("Segoe UI", 9, FontStyle.Bold), BackColor = Red, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
                 br.FlatAppearance.BorderSize = 0;
                 br.Click += (s2, e2) => ShowRefund(tid);
                 det.Controls.Add(br);
@@ -346,27 +358,30 @@ namespace PostalServiceWinForms.Forms
 
         private void ShowRefund(string tid)
         {
-            Form f = new Form
-            {
-                Text = "Refund -- " + tid,
-                Size = new Size(480, 300),
-                StartPosition = FormStartPosition.CenterParent,
-                BackColor = Color.White
-            };
+            Form f = new Form { Text = "Refund -- " + tid, Size = new Size(480, 300), StartPosition = FormStartPosition.CenterParent, BackColor = Color.White };
             f.Controls.Add(new Label { Text = "Refund Request", Font = new Font("Segoe UI", 14, FontStyle.Bold), ForeColor = Red, Location = new Point(20, 18), Size = new Size(400, 28) });
+            f.Controls.Add(new Label { Text = "Describe the reason:", Font = new Font("Segoe UI", 10), ForeColor = Color.Gray, Location = new Point(20, 52), Size = new Size(430, 22) });
             TextBox r2 = new TextBox { Location = new Point(20, 78), Size = new Size(430, 95), Font = new Font("Segoe UI", 10), Multiline = true, BorderStyle = BorderStyle.FixedSingle };
             f.Controls.Add(r2);
-            f.Controls.Add(new Label { Text = "Describe the reason:", Font = new Font("Segoe UI", 10), ForeColor = Color.Gray, Location = new Point(20, 52), Size = new Size(430, 22) });
             Button sub = new Button { Text = "Submit", Location = new Point(20, 213), Size = new Size(130, 40), Font = new Font("Segoe UI", 10, FontStyle.Bold), BackColor = Red, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
             sub.FlatAppearance.BorderSize = 0;
-            sub.Click += (s2, e2) =>
-            {
-                if (string.IsNullOrWhiteSpace(r2.Text)) { MessageBox.Show("Please enter a reason."); return; }
-                MessageBox.Show(db.RequestRefund(tid, r2.Text.Trim()));
-                f.Close(); RefreshParcels();
-            };
+            sub.Click += (s2, e2) => { if (string.IsNullOrWhiteSpace(r2.Text)) { MessageBox.Show("Please enter a reason."); return; } MessageBox.Show(db.RequestRefund(tid, r2.Text.Trim())); f.Close(); RefreshParcels(); };
             f.Controls.Add(sub);
             f.ShowDialog();
+        }
+
+        private void StatusFmt(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (dgvParcels.Columns.Count == 0) return;
+            if (!dgvParcels.Columns.Contains("Status")) return;
+            if (e.ColumnIndex != dgvParcels.Columns["Status"].Index) return;
+            string v = e.Value?.ToString() ?? "";
+            e.CellStyle.ForeColor = v == "Delivered" ? Color.FromArgb(20, 130, 65) :
+                                    v == "In Transit" ? Color.FromArgb(30, 100, 180) :
+                                    v == "Failed" ? Color.FromArgb(200, 30, 30) :
+                                    v == "Pending" ? Color.FromArgb(160, 100, 0) :
+                                    Color.Black;
+            e.CellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
         }
 
         // ============================================================
@@ -391,23 +406,21 @@ namespace PostalServiceWinForms.Forms
             y += 118;
 
             // Step 2 - Choose a service
-            SH("Step 2 -- Choose a Service (select one)", y); y += 36;
+            SH("Step 2 -- Choose a Service", y); y += 36;
 
             pnlMailSvc = new Panel { Location = new Point(10, y), Size = new Size(1240, 90), BackColor = Color.Transparent, Visible = false };
             pnlSend.Controls.Add(pnlMailSvc);
             pnlPkgSvc = new Panel { Location = new Point(10, y), Size = new Size(1240, 90), BackColor = Color.Transparent, Visible = true };
             pnlSend.Controls.Add(pnlPkgSvc);
 
-            // Mail service cards
-            pnlMailFirst = SvcCard(pnlMailSvc, "First Class", "Up to 100g, standard", "GBP 1.99", "3-5 days", 0, () => { mailSvcIndex = 0; RefreshMailSvc(); Recalc(); });
-            pnlMailPriority = SvcCard(pnlMailSvc, "Priority", "Up to 2kg, tracked", "GBP 3.99", "1-2 days", 310, () => { mailSvcIndex = 1; RefreshMailSvc(); Recalc(); });
-            pnlMailExpress = SvcCard(pnlMailSvc, "Express", "Up to 2kg, guaranteed", "GBP 6.99", "Next day", 620, () => { mailSvcIndex = 2; RefreshMailSvc(); Recalc(); });
+            pnlMailFirst = SvcCard(pnlMailSvc, "First Class", "Up to 100g", "GBP 1.99", "3-5 days", 0, () => { mailSvcIndex = 0; RefreshMailSvc(); Recalc(); });
+            pnlMailPriority = SvcCard(pnlMailSvc, "Priority", "Up to 2kg", "GBP 3.99", "1-2 days", 310, () => { mailSvcIndex = 1; RefreshMailSvc(); Recalc(); });
+            pnlMailExpress = SvcCard(pnlMailSvc, "Express", "Guaranteed", "GBP 6.99", "Next day", 620, () => { mailSvcIndex = 2; RefreshMailSvc(); Recalc(); });
 
-            // Package service cards
-            pnlPkgGround = SvcCard(pnlPkgSvc, "Ground", "Up to 30kg, tracked", "GBP 2.99+", "3-5 days", 0, () => { pkgSvcIndex = 0; RefreshPkgSvc(); Recalc(); });
-            pnlPkgPriority = SvcCard(pnlPkgSvc, "Priority", "Faster delivery, tracked", "GBP 5.99+", "1-2 days", 310, () => { pkgSvcIndex = 1; RefreshPkgSvc(); Recalc(); });
-            pnlPkgExpress = SvcCard(pnlPkgSvc, "Express", "Guaranteed, tracked", "GBP 9.99+", "Next day", 620, () => { pkgSvcIndex = 2; RefreshPkgSvc(); Recalc(); });
-            pnlPkgNextDay = SvcCard(pnlPkgSvc, "Next Day", "By 1pm next working day", "GBP 14.99+", "By 1pm", 930, () => { pkgSvcIndex = 3; RefreshPkgSvc(); Recalc(); });
+            pnlPkgGround = SvcCard(pnlPkgSvc, "Ground", "Up to 30kg", "GBP 2.99+", "3-5 days", 0, () => { pkgSvcIndex = 0; RefreshPkgSvc(); Recalc(); });
+            pnlPkgPriority = SvcCard(pnlPkgSvc, "Priority", "Faster", "GBP 5.99+", "1-2 days", 310, () => { pkgSvcIndex = 1; RefreshPkgSvc(); Recalc(); });
+            pnlPkgExpress = SvcCard(pnlPkgSvc, "Express", "Guaranteed", "GBP 9.99+", "Next day", 620, () => { pkgSvcIndex = 2; RefreshPkgSvc(); Recalc(); });
+            pnlPkgNextDay = SvcCard(pnlPkgSvc, "Next Day", "By 1pm", "GBP 14.99+", "By 1pm", 930, () => { pkgSvcIndex = 3; RefreshPkgSvc(); Recalc(); });
 
             mailSvcIndex = 0; pkgSvcIndex = 0;
             RefreshMailSvc(); RefreshPkgSvc();
@@ -415,8 +428,8 @@ namespace PostalServiceWinForms.Forms
 
             // Step 3 - Where is it going
             SH("Step 3 -- Where is it going?", y); y += 36;
-            rbDomestic = new RadioButton { Text = "UK Domestic", Font = new Font("Segoe UI", 11), Location = new Point(10, y), Size = new Size(220, 28), Checked = true };
-            rbInternational = new RadioButton { Text = "International", Font = new Font("Segoe UI", 11), Location = new Point(240, y), Size = new Size(200, 28) };
+            rbDomestic = new RadioButton { Text = "UK Domestic", Font = new Font("Segoe UI", 11), Location = new Point(10, y), Size = new Size(200, 28), Checked = true };
+            rbInternational = new RadioButton { Text = "International", Font = new Font("Segoe UI", 11), Location = new Point(220, y), Size = new Size(200, 28) };
             pnlSend.Controls.AddRange(new Control[] { rbDomestic, rbInternational });
             y += 36;
 
@@ -428,432 +441,416 @@ namespace PostalServiceWinForms.Forms
 
             pnlIntlSection = new Panel { Location = new Point(10, y + 38), Size = new Size(1240, 50), BackColor = Color.FromArgb(242, 255, 242), Visible = false };
             pnlSend.Controls.Add(pnlIntlSection);
-            pnlIntlSection.Controls.Add(new Label
-            {
-                Text = "Zone 1 Europe x1.8  |  Zone 2 N.Europe x2.2  |  Zone 3 USA/UAE x3.0  |  Zone 4 World x3.5-3.8",
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.FromArgb(20, 80, 40),
-                Location = new Point(12, 4),
-                Size = new Size(1210, 42),
-                BackColor = Color.Transparent
-            });
+            pnlIntlSection.Controls.Add(new Label { Text = "Zone 1 Europe x1.8  |  Zone 2 N.Europe x2.2  |  Zone 3 USA/UAE x3.0  |  Zone 4 World x3.5-3.8", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(20, 80, 40), Location = new Point(12, 14), Size = new Size(1210, 22), BackColor = Color.Transparent });
 
-            rbDomestic.CheckedChanged += (s, e) => { cboCountry.Visible = rbInternational.Checked; pnlIntlSection.Visible = rbInternational.Checked; UpdateDropOff(); Recalc(); };
-            rbInternational.CheckedChanged += (s, e) => { cboCountry.Visible = rbInternational.Checked; pnlIntlSection.Visible = rbInternational.Checked; UpdateDropOff(); Recalc(); };
-            y += 96;
+            rbDomestic.CheckedChanged += (s, e) => { bool d = rbDomestic.Checked; cboCountry.Visible = !d; pnlIntlSection.Visible = !d; Recalc(); };
+            rbInternational.CheckedChanged += (s, e) => { bool d = rbDomestic.Checked; cboCountry.Visible = !d; pnlIntlSection.Visible = !d; Recalc(); };
+            y += 100;
 
-            // Step 4 - Your email (for notifications)
-            SH("Step 4 -- Your Contact Email", y); y += 36;
-            FL("YOUR EMAIL ADDRESS (for delivery notifications)", 10, y); y += 16;
-            txtSenderEmail = FT("your@gmail.com", 10, y, 560);
-            txtSenderEmail.TextChanged += (s, e) => ValidateSenderEmail();
-            y += 50;
+            // Step 4 - Receiver details
+            SH("Step 4 -- Receiver Details", y); y += 36;
 
-            // Step 5 - Receiver details
-            SH("Step 5 -- Receiver Details", y); y += 36;
-            FL("RECEIVER FULL NAME", 10, y); FL("RECEIVER ADDRESS (include postcode)", 450, y); y += 16;
-            txtRcvName = FT("Full name of recipient", 10, y, 425);
-            txtRcvAddr = FT("Full delivery address + postcode", 450, y, 800);
-            y += 50;
+            pnlSend.Controls.Add(new Label { Text = "RECEIVER NAME", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(400, 16) });
+            pnlSend.Controls.Add(new Label { Text = "RECEIVER ADDRESS", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(440, y), Size = new Size(400, 16) });
+            y += 18;
 
-            // Step 6 - Size and weight
-            SH("Step 6 -- Size and Weight", y); y += 36;
-            FL("WEIGHT (KG)", 10, y); FL("SIZE", 270, y); y += 16;
-            txtWeight = FT("e.g. 1.5", 10, y, 245);
+            txtRcvName = new TextBox { Location = new Point(10, y), Size = new Size(420, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            txtRcvAddr = new TextBox { Location = new Point(440, y), Size = new Size(820, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlSend.Controls.AddRange(new Control[] { txtRcvName, txtRcvAddr });
+            y += 46;
+
+            // Email confirmation field
+            pnlSend.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com) -- confirmation will be sent here", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(700, 16) });
+            y += 18;
+            txtSenderEmail = new TextBox { Location = new Point(10, y), Size = new Size(560, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlSend.Controls.Add(txtSenderEmail);
+            y += 46;
+
+            // Step 5 - Weight and size
+            SH("Step 5 -- Weight and Size", y); y += 36;
+            pnlSend.Controls.Add(new Label { Text = "WEIGHT (kg)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(200, 16) });
+            pnlSend.Controls.Add(new Label { Text = "SIZE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(240, y), Size = new Size(200, 16) });
+            y += 18;
+
+            txtWeight = new TextBox { Location = new Point(10, y), Size = new Size(220, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle, Text = "1.0" };
             txtWeight.TextChanged += (s, e) => Recalc();
-            cboSize = new ComboBox
-            {
-                Location = new Point(270, y),
-                Size = new Size(270, 34),
-                Font = new Font("Segoe UI", 10),
-                DropDownStyle = ComboBoxStyle.DropDownList
-            };
-            cboSize.Items.AddRange(new string[] { "Small (up to 1kg)", "Medium (1-5kg)", "Large (5-15kg)", "Extra Large (15kg+)" });
+
+            cboSize = new ComboBox { Location = new Point(240, y), Size = new Size(220, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
+            cboSize.Items.AddRange(new object[] { "Small", "Medium", "Large" });
             cboSize.SelectedIndex = 0;
             cboSize.SelectedIndexChanged += (s, e) => Recalc();
-            pnlSend.Controls.Add(cboSize);
+            pnlSend.Controls.AddRange(new Control[] { txtWeight, cboSize });
+            y += 46;
+
+            // Price and estimate display
+            lblPrice = new Label { Location = new Point(10, y), Size = new Size(600, 32), Font = new Font("Segoe UI", 14, FontStyle.Bold), ForeColor = Red };
+            lblEstDays = new Label { Location = new Point(10, y + 36), Size = new Size(600, 22), Font = new Font("Segoe UI", 10), ForeColor = Color.Gray };
+            pnlSend.Controls.AddRange(new Control[] { lblPrice, lblEstDays });
+            y += 70;
+
+            // Drop off locations section
+            SH("Drop Off Locations -- Click to open in Google Maps", y); y += 36;
+
+            // Info note
+            Panel note = new Panel { Location = new Point(10, y), Size = new Size(1240, 40), BackColor = Color.FromArgb(235, 245, 255) };
+            note.Controls.Add(new Label { Text = "Click any location below to get directions in Google Maps -- completely free, no account needed.", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(20, 60, 140), Location = new Point(12, 10), Size = new Size(1200, 20), BackColor = Color.Transparent });
+            pnlSend.Controls.Add(note);
             y += 50;
 
-            // Drop-off location section
-            SH("Step 7 -- Drop Off Your Parcel", y); y += 36;
-            pnlDropOff = new Panel { Location = new Point(10, y), Size = new Size(1240, 180), BackColor = Color.FromArgb(240, 248, 255) };
-            pnlSend.Controls.Add(pnlDropOff);
-            pnlDropOff.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(5, 180), BackColor = Red });
-            pnlDropOff.Controls.Add(new Label
+            // Location cards with Google Maps links
+            int lx = 10; int ly = y;
+            for (int i = 0; i < dropOffLocations.Length; i++)
             {
-                Text = "Nearest PostalMS Drop-Off Locations",
-                Font = new Font("Segoe UI", 11, FontStyle.Bold),
-                ForeColor = Red,
-                Location = new Point(16, 10),
-                Size = new Size(900, 22),
-                BackColor = Color.Transparent
-            });
-            lblDropOff = new Label
-            {
-                Text = GetDropOffText(),
-                Font = new Font("Segoe UI", 10),
-                ForeColor = Color.FromArgb(30, 30, 60),
-                Location = new Point(16, 40),
-                Size = new Size(1210, 130),
-                BackColor = Color.Transparent
-            };
-            pnlDropOff.Controls.Add(lblDropOff);
-            y += 190;
+                var loc = dropOffLocations[i];
+                Panel card = new Panel { Location = new Point(lx, ly), Size = new Size(295, 110), BackColor = Color.White, Cursor = Cursors.Hand };
+                card.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(295, 4), BackColor = Red });
 
-            // Charges info
-            Panel chg = new Panel { Location = new Point(10, y), Size = new Size(1240, 36), BackColor = Color.FromArgb(255, 248, 220) };
-            chg.Controls.Add(new Label
-            {
-                Text = "Extra charges: Tracked Mail +0.50  |  Service surcharges shown above  |  Insurance over 100: +2.50  |  International customs: varies",
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.FromArgb(110, 70, 0),
-                Location = new Point(12, 10),
-                Size = new Size(1200, 18),
-                BackColor = Color.Transparent
-            });
-            pnlSend.Controls.Add(chg);
-            y += 44;
+                // Location name
+                card.Controls.Add(new Label { Text = loc.name, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Red, Location = new Point(10, 10), Size = new Size(275, 18) });
 
-            // Price estimate panel
-            Panel priceBox = new Panel { Location = new Point(10, y), Size = new Size(1240, 64), BackColor = Color.FromArgb(255, 235, 235) };
-            priceBox.Controls.Add(new Label { Text = "ESTIMATED PRICE AND DELIVERY", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(12, 5), Size = new Size(500, 15), BackColor = Color.Transparent });
-            lblPrice = new Label { Text = "GBP 2.99", Font = new Font("Segoe UI", 24, FontStyle.Bold), ForeColor = Red, Location = new Point(12, 20), Size = new Size(220, 38), BackColor = Color.Transparent };
-            lblEstDays = new Label { Text = "3-5 working days", Font = new Font("Segoe UI", 11), ForeColor = Color.Gray, Location = new Point(240, 30), Size = new Size(500, 24), BackColor = Color.Transparent };
-            priceBox.Controls.AddRange(new Control[] { lblPrice, lblEstDays });
-            pnlSend.Controls.Add(priceBox);
-            y += 72;
+                // Address
+                card.Controls.Add(new Label { Text = loc.address, Font = new Font("Segoe UI", 8), ForeColor = Color.FromArgb(60, 60, 60), Location = new Point(10, 30), Size = new Size(275, 32) });
 
-            // Prohibited items notice
-            Panel proh = new Panel { Location = new Point(10, y), Size = new Size(1240, 32), BackColor = Color.FromArgb(255, 240, 240) };
-            proh.Controls.Add(new Label
-            {
-                Text = "Prohibited: Weapons, illegal drugs, hazardous materials, live animals, counterfeit goods, cash",
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.FromArgb(140, 30, 30),
-                Location = new Point(12, 8),
-                Size = new Size(1200, 18),
-                BackColor = Color.Transparent
-            });
-            pnlSend.Controls.Add(proh);
-            y += 40;
+                // Hours
+                card.Controls.Add(new Label { Text = loc.hours, Font = new Font("Segoe UI", 8, FontStyle.Italic), ForeColor = Color.Gray, Location = new Point(10, 64), Size = new Size(275, 18) });
+
+                // Open Maps link
+                string url = loc.mapsUrl;
+                LinkLabel lnk = new LinkLabel { Text = "Get Directions", Font = new Font("Segoe UI", 8, FontStyle.Bold), LinkColor = Red, Location = new Point(10, 84), Size = new Size(275, 18) };
+                lnk.Click += (s, e) => { try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { MessageBox.Show("Could not open browser. Please visit: " + url); } };
+                card.Controls.Add(lnk);
+
+                // Clicking the card also opens maps
+                string cardUrl = loc.mapsUrl;
+                card.Click += (s, e) => { try { Process.Start(new ProcessStartInfo(cardUrl) { UseShellExecute = true }); } catch { } };
+
+                pnlSend.Controls.Add(card);
+
+                lx += 305;
+                if (lx > 1200) { lx = 10; ly += 120; }
+            }
+            y = ly + 130;
 
             // Submit button
-            Button bSub = new Button
+            Button btnSubmit = new Button
             {
-                Text = "Submit and Send",
+                Text = "Submit Parcel ->",
                 Location = new Point(10, y),
-                Size = new Size(210, 48),
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Size = new Size(300, 52),
+                Font = new Font("Segoe UI", 13, FontStyle.Bold),
                 BackColor = Red,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
             };
-            bSub.FlatAppearance.BorderSize = 0;
-            bSub.MouseEnter += (s, e) => bSub.BackColor = DarkRed;
-            bSub.MouseLeave += (s, e) => bSub.BackColor = Red;
-            bSub.Click += Submit_Click;
+            btnSubmit.FlatAppearance.BorderSize = 0;
+            btnSubmit.MouseEnter += (s, e) => btnSubmit.BackColor = DarkRed;
+            btnSubmit.MouseLeave += (s, e) => btnSubmit.BackColor = Red;
+            btnSubmit.Click += Submit_Click;
+            pnlSend.Controls.Add(btnSubmit);
 
-            Button bClr = new Button
+            Recalc();
+        }
+
+        // ============================================================
+        // STAMPS PANEL
+        // ============================================================
+        private void BuildStampsPanel()
+        {
+            int y = 10;
+
+            // Header
+            pnlStamps.Controls.Add(new Label { Text = "Buy Stamps", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = Red, Location = new Point(10, y), Size = new Size(400, 36) });
+            y += 44;
+            pnlStamps.Controls.Add(new Label { Text = "Browse stamp types and find your nearest location to buy them.", Font = new Font("Segoe UI", 11), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(900, 24) });
+            y += 36;
+
+            // Stamp types section heading
+            SH2("Available Stamp Types", y); y += 40;
+
+            // Stamp cards with symbols
+            var stamps = new (string symbol, string name, string price, string desc, string weight, string days)[]
             {
-                Text = "Clear Form",
-                Location = new Point(228, y),
-                Size = new Size(120, 48),
-                Font = new Font("Segoe UI", 11),
-                BackColor = Color.White,
-                FlatStyle = FlatStyle.Flat
+                ("[1ST]",  "First Class",       "GBP 1.10", "Fastest domestic delivery",  "Up to 100g",  "Next working day"),
+                ("[2ND]",  "Second Class",      "GBP 0.75", "Standard domestic delivery", "Up to 100g",  "2-3 working days"),
+                ("[LRG]",  "Large Letter",      "GBP 1.55", "For larger envelopes",       "Up to 250g",  "2-3 working days"),
+                ("[INTL]", "International",     "GBP 1.85", "Send to Europe and beyond",  "Up to 100g",  "3-7 working days"),
+                ("[SPEC]", "Special Delivery",  "GBP 6.85", "Tracked and guaranteed",     "Up to 500g",  "Next day by 1pm"),
+                ("[SIGN]", "Signed For",        "GBP 1.95", "Requires signature on delivery","Up to 100g","2-3 working days"),
             };
-            bClr.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
-            bClr.Click += (s, e) => ClearForm();
-            pnlSend.Controls.AddRange(new Control[] { bSub, bClr });
 
-            SelectType(false); RefreshTrackID(); Recalc();
-        }
-
-        // Get drop off text based on domestic or international
-        private string GetDropOffText()
-        {
-            if (rbInternational != null && rbInternational.Checked)
+            int sx = 10;
+            foreach (var stamp in stamps)
             {
-                return "For international parcels please visit any PostalMS Hub below.\n" +
-                       "Customs forms will be provided at the counter.\n\n" +
-                       "PostalMS International Hub - 1 Station Road, London N1 9AA  (Mon-Fri 8am-6pm)\n" +
-                       "PostalMS International Hub - 45 High Street, London EC1A 1AA  (Mon-Fri 9am-5pm)";
+                Panel card = new Panel { Location = new Point(sx, y), Size = new Size(190, 210), BackColor = Color.White };
+                card.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(190, 5), BackColor = Red });
+
+                // Symbol badge
+                Panel badge = new Panel { Location = new Point(10, 14), Size = new Size(170, 50), BackColor = Red };
+                badge.Controls.Add(new Label { Text = stamp.symbol, Font = new Font("Segoe UI", 14, FontStyle.Bold), ForeColor = Color.White, Location = new Point(0, 10), Size = new Size(170, 30), TextAlign = ContentAlignment.MiddleCenter, BackColor = Color.Transparent });
+                card.Controls.Add(badge);
+
+                card.Controls.Add(new Label { Text = stamp.name, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Red, Location = new Point(10, 72), Size = new Size(170, 18) });
+                card.Controls.Add(new Label { Text = stamp.price, Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Color.FromArgb(30, 30, 30), Location = new Point(10, 92), Size = new Size(170, 26) });
+                card.Controls.Add(new Panel { Location = new Point(10, 122), Size = new Size(170, 1), BackColor = Color.FromArgb(220, 220, 220) });
+                card.Controls.Add(new Label { Text = stamp.desc, Font = new Font("Segoe UI", 8), ForeColor = Color.Gray, Location = new Point(10, 128), Size = new Size(170, 18) });
+                card.Controls.Add(new Label { Text = stamp.weight, Font = new Font("Segoe UI", 8), ForeColor = Color.Gray, Location = new Point(10, 148), Size = new Size(170, 18) });
+                card.Controls.Add(new Label { Text = stamp.days, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(20, 100, 50), Location = new Point(10, 168), Size = new Size(170, 18) });
+
+                pnlStamps.Controls.Add(card);
+                sx += 200;
+                if (sx > 1200) { sx = 10; y += 220; }
             }
+            y += 220;
 
-            return "Drop your parcel at any of these locations -- no appointment needed:\n\n" +
-                   "1. PostalMS Hub - 1 Station Road, London N1 9AA  (Mon-Sat 8am-8pm)\n" +
-                   "2. PostalMS Express - 45 High Street, London EC1A 1AA  (Mon-Fri 9am-6pm)\n" +
-                   "3. PostalMS North - 12 Market Square, London N7 6JN  (Mon-Sat 8am-7pm)\n" +
-                   "4. PostalMS South - 88 Brixton Road, London SW9 8PQ  (Mon-Sat 9am-8pm)\n" +
-                   "5. PostalMS West - 22 Shepherd's Bush Road, London W6 7PH  (Mon-Fri 8am-6pm)";
-        }
+            // Books of stamps section
+            SH2("Stamp Books -- Better Value", y); y += 40;
 
-        // Update drop off text when domestic/international changes
-        private void UpdateDropOff()
-        {
-            if (lblDropOff != null)
-                lblDropOff.Text = GetDropOffText();
-        }
-
-        // Validate sender email must be gmail
-        private void ValidateSenderEmail()
-        {
-            if (txtSenderEmail == null) return;
-            string email = txtSenderEmail.Text.Trim();
-            if (string.IsNullOrEmpty(email) || txtSenderEmail.ForeColor == Color.LightGray) return;
-            bool valid = email.EndsWith("@gmail.com") && email.Length > "@gmail.com".Length;
-            txtSenderEmail.BackColor = valid ? Color.FromArgb(240, 255, 240) : Color.FromArgb(255, 240, 240);
-        }
-
-        // Make a mail or package type card
-        private Panel MakeTypeCard(string tag, string title, string desc, int x, int y, int w, Action onClick)
-        {
-            Panel c = new Panel { Location = new Point(x, y), Size = new Size(w, 108), BackColor = Color.White, Cursor = Cursors.Hand };
-            c.Controls.Add(new Label { Text = "[" + tag + "]", Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = Red, Location = new Point(10, 10), Size = new Size(80, 26), BackColor = Color.Transparent });
-            c.Controls.Add(new Label { Text = title, Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Red, Location = new Point(96, 10), Size = new Size(w - 106, 24), BackColor = Color.Transparent });
-            c.Controls.Add(new Label { Text = desc, Font = new Font("Segoe UI", 9), ForeColor = Color.Gray, Location = new Point(96, 36), Size = new Size(w - 106, 38), BackColor = Color.Transparent });
-            foreach (Control ch in c.Controls) ch.Click += (s, e) => onClick();
-            c.Click += (s, e) => onClick();
-            return c;
-        }
-
-        // Make a service selection card
-        private Panel SvcCard(Panel parent, string title, string desc, string price, string time, int x, Action onSelect)
-        {
-            Panel c = new Panel { Location = new Point(x, 0), Size = new Size(295, 84), BackColor = Color.White, Cursor = Cursors.Hand };
-            c.Controls.Add(new Label { Text = title, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Red, Location = new Point(12, 6), Size = new Size(275, 20), BackColor = Color.Transparent });
-            c.Controls.Add(new Label { Text = desc, Font = new Font("Segoe UI", 8), ForeColor = Color.Gray, Location = new Point(12, 28), Size = new Size(275, 30), BackColor = Color.Transparent });
-            c.Controls.Add(new Label { Text = price, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = Red, Location = new Point(12, 58), Size = new Size(130, 22), BackColor = Color.Transparent });
-            c.Controls.Add(new Label { Text = time, Font = new Font("Segoe UI", 9), ForeColor = Color.Gray, Location = new Point(155, 60), Size = new Size(130, 18), BackColor = Color.Transparent });
-            foreach (Control ch in c.Controls) ch.Click += (s, e) => onSelect();
-            c.Click += (s, e) => onSelect();
-            parent.Controls.Add(c);
-            return c;
-        }
-
-        // Highlight selected mail service card
-        private void RefreshMailSvc()
-        {
-            Panel[] cards = { pnlMailFirst, pnlMailPriority, pnlMailExpress };
-            for (int i = 0; i < cards.Length; i++)
+            var books = new (string symbol, string name, string price, string saving)[]
             {
-                int idx = i;
-                cards[i].BackColor = mailSvcIndex == i ? Color.FromArgb(255, 245, 245) : Color.White;
-                cards[i].Paint -= SvcPaint;
-                if (mailSvcIndex == i) cards[i].Paint += SvcPaint;
-                cards[i].Invalidate();
+                ("[x12]", "12 First Class Stamps",  "GBP 12.50", "Save GBP 0.70 vs buying individually"),
+                ("[x12]", "12 Second Class Stamps", "GBP 8.75",  "Save GBP 0.25 vs buying individually"),
+                ("[x25]", "25 Mixed Stamp Sheet",   "GBP 22.00", "Mixed first and second class stamps"),
+            };
+
+            int bx = 10;
+            foreach (var book in books)
+            {
+                Panel bcard = new Panel { Location = new Point(bx, y), Size = new Size(360, 120), BackColor = Color.White };
+                bcard.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(360, 5), BackColor = Red });
+                Panel bbadge = new Panel { Location = new Point(10, 14), Size = new Size(60, 60), BackColor = Red };
+                bbadge.Controls.Add(new Label { Text = book.symbol, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Color.White, Location = new Point(0, 12), Size = new Size(60, 30), TextAlign = ContentAlignment.MiddleCenter, BackColor = Color.Transparent });
+                bcard.Controls.Add(bbadge);
+                bcard.Controls.Add(new Label { Text = book.name, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Red, Location = new Point(80, 16), Size = new Size(270, 20) });
+                bcard.Controls.Add(new Label { Text = book.price + " per book", Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = Color.FromArgb(30, 30, 30), Location = new Point(80, 40), Size = new Size(270, 24) });
+                bcard.Controls.Add(new Label { Text = book.saving, Font = new Font("Segoe UI", 8, FontStyle.Italic), ForeColor = Color.FromArgb(20, 100, 50), Location = new Point(80, 68), Size = new Size(270, 18) });
+                pnlStamps.Controls.Add(bcard);
+                bx += 375;
+            }
+            y += 130;
+
+            // Where to buy section
+            SH2("Where to Buy Stamps -- Click for Directions", y); y += 40;
+
+            Panel buyNote = new Panel { Location = new Point(10, y), Size = new Size(1240, 40), BackColor = Color.FromArgb(255, 245, 220) };
+            buyNote.Controls.Add(new Label { Text = "All locations below sell PostalMS stamps. Click any card to open directions in Google Maps.", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(110, 70, 0), Location = new Point(12, 10), Size = new Size(1200, 20), BackColor = Color.Transparent });
+            pnlStamps.Controls.Add(buyNote);
+            y += 50;
+
+            int lx2 = 10;
+            foreach (var loc in dropOffLocations)
+            {
+                Panel lcard = new Panel { Location = new Point(lx2, y), Size = new Size(295, 100), BackColor = Color.White, Cursor = Cursors.Hand };
+                lcard.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(295, 4), BackColor = Red });
+                lcard.Controls.Add(new Label { Text = loc.name, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Red, Location = new Point(10, 10), Size = new Size(275, 18) });
+                lcard.Controls.Add(new Label { Text = loc.address, Font = new Font("Segoe UI", 8), ForeColor = Color.FromArgb(60, 60, 60), Location = new Point(10, 30), Size = new Size(275, 32) });
+                lcard.Controls.Add(new Label { Text = loc.hours, Font = new Font("Segoe UI", 8, FontStyle.Italic), ForeColor = Color.Gray, Location = new Point(10, 64), Size = new Size(275, 18) });
+
+                string url2 = loc.mapsUrl;
+                lcard.Click += (s, e) => { try { Process.Start(new ProcessStartInfo(url2) { UseShellExecute = true }); } catch { } };
+                foreach (Control child in lcard.Controls)
+                    child.Click += (s, e) => { try { Process.Start(new ProcessStartInfo(url2) { UseShellExecute = true }); } catch { } };
+
+                pnlStamps.Controls.Add(lcard);
+                lx2 += 305;
+                if (lx2 > 1200) { lx2 = 10; y += 110; }
             }
         }
 
-        // Highlight selected package service card
-        private void RefreshPkgSvc()
+        // Section heading helper
+        private void SH(string text, int y)
         {
-            Panel[] cards = { pnlPkgGround, pnlPkgPriority, pnlPkgExpress, pnlPkgNextDay };
-            for (int i = 0; i < cards.Length; i++)
-            {
-                cards[i].BackColor = pkgSvcIndex == i ? Color.FromArgb(255, 245, 245) : Color.White;
-                cards[i].Paint -= SvcPaint;
-                if (pkgSvcIndex == i) cards[i].Paint += SvcPaint;
-                cards[i].Invalidate();
-            }
+            pnlSend.Controls.Add(new Label { Text = text, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = Red, Location = new Point(10, y), Size = new Size(800, 24) });
+            pnlSend.Controls.Add(new Panel { Location = new Point(10, y + 26), Size = new Size(1240, 1), BackColor = Color.FromArgb(220, 180, 180) });
         }
 
-        // Draw red border on selected service card
-        private void SvcPaint(object s, PaintEventArgs e)
+        private void SH2(string text, int y)
         {
-            var p = s as Panel;
-            if (p != null) e.Graphics.DrawRectangle(new Pen(Red, 3), 1, 1, p.Width - 3, p.Height - 3);
+            pnlStamps.Controls.Add(new Label { Text = text, Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = Red, Location = new Point(10, y), Size = new Size(800, 26) });
+            pnlStamps.Controls.Add(new Panel { Location = new Point(10, y + 28), Size = new Size(1240, 1), BackColor = Color.FromArgb(220, 180, 180) });
         }
 
-        // Switch between Mail and Package type
+        // Make mail/package type card
+        private Panel MakeTypeCard(string type, string title, string desc, int x, int y, int w, Action onClick)
+        {
+            Panel card = new Panel { Location = new Point(x, y), Size = new Size(w, 108), BackColor = Color.White, Cursor = Cursors.Hand };
+            card.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(w, 5), BackColor = Color.FromArgb(220, 200, 200) });
+            card.Controls.Add(new Label { Text = title, Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Red, Location = new Point(16, 14), Size = new Size(w - 32, 28) });
+            card.Controls.Add(new Label { Text = desc, Font = new Font("Segoe UI", 9), ForeColor = Color.Gray, Location = new Point(16, 46), Size = new Size(w - 32, 48) });
+            card.Click += (s, e) => onClick();
+            foreach (Control c in card.Controls) c.Click += (s, e) => onClick();
+            return card;
+        }
+
+        // Select mail or package
         private void SelectType(bool mail)
         {
             isMail = mail;
-            pnlMailCard.Paint -= MailCardPaint; pnlPkgCard.Paint -= PkgCardPaint;
-            pnlMailCard.Paint += MailCardPaint; pnlPkgCard.Paint += PkgCardPaint;
-            pnlMailCard.Invalidate(); pnlPkgCard.Invalidate();
+            pnlMailCard.Controls[0].BackColor = mail ? Red : Color.FromArgb(220, 200, 200);
+            pnlPkgCard.Controls[0].BackColor = !mail ? Red : Color.FromArgb(220, 200, 200);
             pnlMailSvc.Visible = mail;
             pnlPkgSvc.Visible = !mail;
             Recalc();
         }
 
-        private void MailCardPaint(object s, PaintEventArgs e)
+        // Make service selection card
+        private Panel SvcCard(Panel parent, string name, string sub, string price, string days, int x, Action onClick)
         {
-            if (isMail) e.Graphics.DrawRectangle(new Pen(Red, 3), 1, 1, pnlMailCard.Width - 3, pnlMailCard.Height - 3);
-            else e.Graphics.DrawRectangle(new Pen(Color.FromArgb(215, 215, 215), 1), 0, 0, pnlMailCard.Width - 1, pnlMailCard.Height - 1);
+            Panel card = new Panel { Location = new Point(x, 0), Size = new Size(300, 88), BackColor = Color.White, Cursor = Cursors.Hand };
+            card.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(300, 4), BackColor = Color.FromArgb(220, 200, 200), Name = "bar" });
+            card.Controls.Add(new Label { Text = name, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = Red, Location = new Point(12, 10), Size = new Size(276, 22) });
+            card.Controls.Add(new Label { Text = sub, Font = new Font("Segoe UI", 9), ForeColor = Color.Gray, Location = new Point(12, 34), Size = new Size(276, 18) });
+            card.Controls.Add(new Label { Text = price + "  --  " + days, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Color.FromArgb(50, 50, 50), Location = new Point(12, 56), Size = new Size(276, 18) });
+            card.Click += (s, e) => onClick();
+            foreach (Control c in card.Controls) c.Click += (s, e) => onClick();
+            parent.Controls.Add(card);
+            return card;
         }
 
-        private void PkgCardPaint(object s, PaintEventArgs e)
+        private void RefreshMailSvc()
         {
-            if (!isMail) e.Graphics.DrawRectangle(new Pen(Red, 3), 1, 1, pnlPkgCard.Width - 3, pnlPkgCard.Height - 3);
-            else e.Graphics.DrawRectangle(new Pen(Color.FromArgb(215, 215, 215), 1), 0, 0, pnlPkgCard.Width - 1, pnlPkgCard.Height - 1);
+            Panel[] cards = { pnlMailFirst, pnlMailPriority, pnlMailExpress };
+            for (int i = 0; i < cards.Length; i++)
+                if (cards[i] != null)
+                    cards[i].Controls["bar"].BackColor = i == mailSvcIndex ? Red : Color.FromArgb(220, 200, 200);
+        }
+
+        private void RefreshPkgSvc()
+        {
+            Panel[] cards = { pnlPkgGround, pnlPkgPriority, pnlPkgExpress, pnlPkgNextDay };
+            for (int i = 0; i < cards.Length; i++)
+                if (cards[i] != null)
+                    cards[i].Controls["bar"].BackColor = i == pkgSvcIndex ? Red : Color.FromArgb(220, 200, 200);
         }
 
         private void RefreshTrackID()
         {
-            if (lblTrackGen == null) return;
-            lblTrackGen.Text = "Tracking ID will be:  PS-" + DateTime.Now.Year + "-" + (db.GetParcelCount() + 1).ToString("D5") + "     (auto-assigned on submit)";
+            int count = db.GetParcelCount() + 1;
+            string tid = "PS-" + DateTime.Now.Year + "-" + count.ToString("D5");
+            if (lblTrackGen != null)
+                lblTrackGen.Text = "Tracking ID that will be assigned: " + tid;
         }
 
-        private string GetServiceName()
-        {
-            if (isMail) { switch (mailSvcIndex) { case 0: return "First Class"; case 1: return "Priority"; case 2: return "Express"; } }
-            else { switch (pkgSvcIndex) { case 0: return "Standard"; case 1: return "Priority"; case 2: return "Express"; case 3: return "Next Day"; } }
-            return "Standard";
-        }
-
-        private double GetServicePrice()
-        {
-            if (isMail) { switch (mailSvcIndex) { case 0: return 1.99; case 1: return 3.99; case 2: return 6.99; } }
-            else { switch (pkgSvcIndex) { case 0: return 2.99; case 1: return 5.99; case 2: return 9.99; case 3: return 14.99; } }
-            return 2.99;
-        }
-
-        private int GetServiceDays()
-        {
-            if (isMail) { switch (mailSvcIndex) { case 0: return 4; case 1: return 2; case 2: return 1; } }
-            else { switch (pkgSvcIndex) { case 0: return 5; case 1: return 2; case 2: return 1; case 3: return 1; } }
-            return 5;
-        }
-
-        // Recalculate price based on current selections
+        // Recalculate price based on selections
         private void Recalc()
         {
             try
             {
-                double w = double.TryParse(txtWeight?.Text, out double wv) ? wv : 0;
-                double sm = cboSize?.SelectedIndex == 0 ? 1.0 : cboSize?.SelectedIndex == 1 ? 1.5 : cboSize?.SelectedIndex == 2 ? 2.5 : 3.5;
-                double svcP = GetServicePrice();
-                int days = GetServiceDays();
-                double intlM = 1.0;
+                if (!double.TryParse(txtWeight?.Text ?? "1", out double w)) w = 1.0;
+                string sz = cboSize?.SelectedItem?.ToString() ?? "Small";
+                double sm = sz == "Small" ? 1.0 : sz == "Medium" ? 1.5 : 2.5;
+                double svc, im = 1.0; int days;
 
-                if (rbInternational?.Checked == true && cboCountry?.SelectedItem != null)
+                if (isMail)
                 {
-                    string sel = cboCountry.SelectedItem.ToString();
-                    if (countries.ContainsKey(sel)) { intlM = countries[sel].mult; days = countries[sel].days; }
+                    double[] prices = { 1.99, 3.99, 6.99 };
+                    int[] d2 = { 4, 2, 1 };
+                    svc = prices[mailSvcIndex]; days = d2[mailSvcIndex];
+                }
+                else
+                {
+                    double[] prices = { 2.99, 5.99, 9.99, 14.99 };
+                    int[] d2 = { 4, 2, 1, 1 };
+                    svc = prices[pkgSvcIndex]; days = d2[pkgSvcIndex];
                 }
 
-                double price = Math.Round((svcP + w * 1.2) * sm * intlM, 2);
-                if (lblPrice != null) lblPrice.Text = "GBP " + price.ToString("0.00");
-                if (lblEstDays != null) lblEstDays.Text = (rbInternational?.Checked == true ? "International -- " : "UK Domestic -- ") + days + " working day(s)";
+                if (rbInternational != null && rbInternational.Checked && cboCountry?.SelectedItem != null)
+                {
+                    var info = countries[cboCountry.SelectedItem.ToString()];
+                    im = info.mult; days = info.days;
+                }
+
+                double price = Math.Round((svc + w * 1.2) * sm * im, 2);
+                if (lblPrice != null) lblPrice.Text = "Estimated Price: GBP " + price.ToString("0.00");
+                if (lblEstDays != null) lblEstDays.Text = "Estimated delivery: " + days + " working day(s)";
             }
             catch { }
         }
 
-        // Submit a new parcel
+        // Submit parcel
         private void Submit_Click(object sender, EventArgs e)
         {
-            // Validate sender email
-            string senderEmail = txtSenderEmail?.Text.Trim() ?? "";
-            if (string.IsNullOrEmpty(senderEmail) || txtSenderEmail.ForeColor == Color.LightGray || !senderEmail.EndsWith("@gmail.com"))
+            // Validate email
+            string email = txtSenderEmail?.Text.Trim() ?? "";
+            if (!email.EndsWith("@gmail.com") || email.Length <= "@gmail.com".Length)
             {
-                MessageBox.Show("Please enter a valid Gmail address (e.g. yourname@gmail.com) for delivery notifications.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please enter a valid Gmail address.\nExample: yourname@gmail.com", "Invalid Email", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Validate receiver fields
-            if (txtRcvName.ForeColor == Color.LightGray || string.IsNullOrWhiteSpace(txtRcvName.Text) ||
-                txtRcvAddr.ForeColor == Color.LightGray || string.IsNullOrWhiteSpace(txtRcvAddr.Text))
-            {
-                MessageBox.Show("Please fill in receiver name and address.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+            if (string.IsNullOrWhiteSpace(txtRcvName?.Text))
+            { MessageBox.Show("Please enter the receiver name.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
 
+            if (string.IsNullOrWhiteSpace(txtRcvAddr?.Text))
+            { MessageBox.Show("Please enter the receiver address.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+
+            if (!double.TryParse(txtWeight?.Text, out double w) || w <= 0)
+            { MessageBox.Show("Please enter a valid weight in kg.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+
+            // Build parcel details
+            string sz = cboSize.SelectedItem.ToString();
             bool isIntl = rbInternational.Checked;
-            string ptype = isMail ? "Mail" : "Package";
-            string svcName = GetServiceName();
-            int cnt = db.GetParcelCount();
-            string tid = "PS-" + DateTime.Now.Year + "-" + (cnt + 1).ToString("D5");
-            double w = double.TryParse(txtWeight.Text, out double wv) ? wv : 0;
-            double price = double.TryParse(lblPrice.Text.Replace("GBP ", ""), out double pv) ? pv : 0;
-            string country = isIntl && cboCountry.SelectedItem != null ? cboCountry.SelectedItem.ToString() : null;
-            string sz = cboSize.SelectedItem.ToString().Split('(')[0].Trim().Split(' ')[0];
+            string country = isIntl ? cboCountry.SelectedItem?.ToString() : null;
+            double sm = sz == "Small" ? 1.0 : sz == "Medium" ? 1.5 : 2.5;
+            double svc; string svcName; int days;
 
-            string res = db.AddParcel(tid, userID, ptype, userName, "My Address",
-                txtRcvName.Text.Trim(), txtRcvAddr.Text.Trim(),
-                w, sz, svcName, isIntl, country, "Pending", price, DateTime.Now.AddDays(5));
-
-            if (res.Contains("successfully"))
+            if (isMail)
             {
-                db.AutoAssignDelivery(tid, "DEL-" + DateTime.Now.Ticks.ToString().Substring(0, 8));
-
-                // Get nearest drop off location
-                string dropOff = dropOffLocations[0];
-
-                MessageBox.Show(
-                    "Parcel submitted successfully!\n\n" +
-                    "Tracking ID:    " + tid + "\n" +
-                    "Type:           " + ptype + "\n" +
-                    "Service:        " + svcName + "\n" +
-                    "Destination:    " + (isIntl ? country + " (International)" : "UK Domestic") + "\n" +
-                    "Price:          " + lblPrice.Text + "\n\n" +
-                    "Confirmation sent to: " + senderEmail + "\n\n" +
-                    "Drop off your parcel at:\n" + dropOff,
-                    "Submitted!", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                ClearForm(); Switch("list");
+                string[] names = { "First Class", "Priority Mail", "Express Mail" };
+                double[] prices = { 1.99, 3.99, 6.99 };
+                int[] d2 = { 4, 2, 1 };
+                svcName = names[mailSvcIndex];
+                svc = prices[mailSvcIndex];
+                days = d2[mailSvcIndex];
             }
             else
             {
-                MessageBox.Show(res, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                string[] names = { "Ground", "Priority", "Express", "Next Day" };
+                double[] prices = { 2.99, 5.99, 9.99, 14.99 };
+                int[] d2 = { 4, 2, 1, 1 };
+                svcName = names[pkgSvcIndex];
+                svc = prices[pkgSvcIndex];
+                days = d2[pkgSvcIndex];
             }
-        }
 
-        // Clear all send form fields
-        private void ClearForm()
-        {
-            txtRcvName.Text = "Full name of recipient"; txtRcvName.ForeColor = Color.LightGray;
-            txtRcvAddr.Text = "Full delivery address + postcode"; txtRcvAddr.ForeColor = Color.LightGray;
-            txtWeight.Text = "e.g. 1.5"; txtWeight.ForeColor = Color.LightGray;
-            txtSenderEmail.Text = "your@gmail.com"; txtSenderEmail.ForeColor = Color.LightGray; txtSenderEmail.BackColor = Color.White;
-            cboSize.SelectedIndex = 0; rbDomestic.Checked = true;
-            mailSvcIndex = 0; pkgSvcIndex = 0;
-            RefreshMailSvc(); RefreshPkgSvc();
-            SelectType(false); RefreshTrackID(); Recalc();
-        }
+            double im = 1.0;
+            if (isIntl && country != null) { im = countries[country].mult; days = countries[country].days; }
 
-        // Helper: section heading
-        private void SH(string t, int y)
-        {
-            pnlSend.Controls.Add(new Label { Text = t, Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = Red, Location = new Point(10, y), Size = new Size(900, 26) });
-            pnlSend.Controls.Add(new Panel { Location = new Point(10, y + 28), Size = new Size(1240, 1), BackColor = Color.FromArgb(230, 180, 180) });
-        }
+            double price = Math.Round((svc + w * 1.2) * sm * im, 2);
+            string tid = "PS-" + DateTime.Now.Year + "-" + (db.GetParcelCount() + 1).ToString("D5");
+            string delID = "DEL-" + (db.GetParcelCount() + 1).ToString("D3");
+            DateTime estDel = DateTime.Now.AddDays(days);
 
-        // Helper: field label
-        private void FL(string t, int x, int y) =>
-            pnlSend.Controls.Add(new Label { Text = t, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(x, y), Size = new Size(430, 15) });
+            string result = db.AddParcel(tid, userID,
+                isMail ? "Mail" : "Package",
+                userName, email,
+                txtRcvName.Text.Trim(), txtRcvAddr.Text.Trim(),
+                w, sz, svcName, isIntl, country,
+                "Pending", price, estDel);
 
-        // Helper: text box with placeholder
-        private TextBox FT(string ph, int x, int y, int w)
-        {
-            TextBox tb = new TextBox
+            if (result.Contains("successfully"))
             {
-                Location = new Point(x, y),
-                Size = new Size(w, 34),
-                Font = new Font("Segoe UI", 11),
-                BorderStyle = BorderStyle.FixedSingle,
-                Text = ph,
-                ForeColor = Color.LightGray
-            };
-            tb.Enter += (s, e) => { if (tb.ForeColor == Color.LightGray) { tb.Text = ""; tb.ForeColor = Color.Black; } };
-            tb.Leave += (s, e) => { if (tb.Text == "") { tb.Text = ph; tb.ForeColor = Color.LightGray; } };
-            pnlSend.Controls.Add(tb);
-            return tb;
-        }
+                db.AutoAssignDelivery(tid, delID);
+                MessageBox.Show(
+                    "Parcel submitted successfully!\n\n" +
+                    "Tracking ID: " + tid + "\n" +
+                    "Price: GBP " + price.ToString("0.00") + "\n" +
+                    "Estimated delivery: " + estDel.ToString("dd/MM/yyyy") + "\n\n" +
+                    "Drop off your parcel at any PostalMS location.\n" +
+                    "Go to the Send form and click Get Directions to find your nearest drop off point.",
+                    "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-        // Colour code status column in the grid
-        private void StatusFmt(object sender, DataGridViewCellFormattingEventArgs e)
-        {
-            var g = sender as DataGridView;
-            if (g == null || e.ColumnIndex < 0 || e.ColumnIndex >= g.Columns.Count || g.Columns[e.ColumnIndex].Name != "Status" || e.Value == null) return;
-            switch (e.Value.ToString())
+                // Reset form
+                txtRcvName.Text = "";
+                txtRcvAddr.Text = "";
+                txtSenderEmail.Text = "";
+                txtWeight.Text = "1.0";
+                Recalc();
+                RefreshTrackID();
+            }
+            else
             {
-                case "In Transit": e.CellStyle.ForeColor = Color.FromArgb(140, 80, 0); e.CellStyle.BackColor = Color.FromArgb(255, 243, 220); break;
-                case "Delivered": e.CellStyle.ForeColor = Color.FromArgb(20, 110, 50); e.CellStyle.BackColor = Color.FromArgb(210, 248, 225); break;
-                case "Pending": e.CellStyle.ForeColor = Color.FromArgb(50, 80, 160); e.CellStyle.BackColor = Color.FromArgb(220, 232, 255); break;
-                case "Failed": e.CellStyle.ForeColor = Color.FromArgb(160, 30, 30); e.CellStyle.BackColor = Color.FromArgb(255, 220, 220); break;
-                case "Out for Delivery": e.CellStyle.ForeColor = Color.FromArgb(80, 45, 160); e.CellStyle.BackColor = Color.FromArgb(235, 225, 255); break;
+                MessageBox.Show(result, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
