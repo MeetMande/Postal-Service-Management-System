@@ -85,9 +85,9 @@ namespace PostalServiceWinForms.Forms
 
         private void Build()
         {
-            // Top navigation bar - increased height so buttons dont overlap main nav
-            Panel topBar = new Panel { Dock = DockStyle.Top, Height = 72, BackColor = Color.White };
-            topBar.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Color.FromArgb(218, 218, 218)), 0, 71, topBar.Width, 71);
+            // Top navigation bar - tall enough so buttons are fully visible below main nav
+            Panel topBar = new Panel { Dock = DockStyle.Top, Height = 110, BackColor = Color.White };
+            topBar.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Color.FromArgb(218, 218, 218)), 0, 109, topBar.Width, 109);
             this.Controls.Add(topBar);
 
             topBar.Controls.Add(new Label
@@ -95,7 +95,7 @@ namespace PostalServiceWinForms.Forms
                 Text = "Parcels",
                 Font = new Font("Segoe UI", 14, FontStyle.Bold),
                 ForeColor = Red,
-                Location = new Point(10, 22),
+                Location = new Point(10, 65),
                 Size = new Size(115, 28)
             });
 
@@ -103,8 +103,8 @@ namespace PostalServiceWinForms.Forms
             btnList = new Button
             {
                 Text = "My Parcels",
-                Location = new Point(132, 18),
-                Size = new Size(140, 36),
+                Location = new Point(132, 60),
+                Size = new Size(140, 38),
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 BackColor = Red,
                 ForeColor = Color.White,
@@ -119,8 +119,8 @@ namespace PostalServiceWinForms.Forms
             btnSend = new Button
             {
                 Text = "Send Mail or Package",
-                Location = new Point(280, 18),
-                Size = new Size(210, 36),
+                Location = new Point(280, 60),
+                Size = new Size(210, 38),
                 Font = new Font("Segoe UI", 10),
                 BackColor = Color.FromArgb(240, 240, 240),
                 ForeColor = Red,
@@ -136,8 +136,8 @@ namespace PostalServiceWinForms.Forms
             btnStampsTab = new Button
             {
                 Text = "Buy Stamps",
-                Location = new Point(498, 18),
-                Size = new Size(140, 36),
+                Location = new Point(498, 60),
+                Size = new Size(140, 38),
                 Font = new Font("Segoe UI", 10),
                 BackColor = Color.FromArgb(240, 240, 240),
                 ForeColor = Red,
@@ -433,34 +433,142 @@ namespace PostalServiceWinForms.Forms
             pnlSend.Controls.AddRange(new Control[] { rbDomestic, rbInternational });
             y += 36;
 
-            cboCountry = new ComboBox { Location = new Point(10, y), Size = new Size(360, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList, Visible = false };
+            // UK city selector -- shown when UK Domestic is selected
+            pnlSend.Controls.Add(new Label { Text = "DESTINATION CITY (UK)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(300, 16), Name = "lblUKCity" });
+            var cboUKCity = new ComboBox
+            {
+                Location = new Point(10, y + 18),
+                Size = new Size(360, 34),
+                Font = new Font("Segoe UI", 11),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Name = "cboUKCity",
+                Visible = true
+            };
+            string[] ukCities = {
+                "London", "Manchester", "Birmingham", "Leeds", "Liverpool",
+                "Sheffield", "Bristol", "Edinburgh", "Glasgow", "Cardiff",
+                "Newcastle", "Nottingham", "Leicester", "Southampton", "Portsmouth",
+                "Oxford", "Cambridge", "Brighton", "Norwich", "Derby",
+                "Coventry", "Reading", "Sunderland", "Wolverhampton", "Bradford"
+            };
+            foreach (string city in ukCities) cboUKCity.Items.Add(city);
+            cboUKCity.SelectedIndex = 0;
+            pnlSend.Controls.Add(cboUKCity);
+
+            // International country selector -- shown when International is selected
+            pnlSend.Controls.Add(new Label { Text = "DESTINATION COUNTRY", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(300, 16), Name = "lblIntlCountry", Visible = false });
+            cboCountry = new ComboBox
+            {
+                Location = new Point(10, y + 18),
+                Size = new Size(360, 34),
+                Font = new Font("Segoe UI", 11),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Visible = false
+            };
             foreach (var k in countries.Keys) cboCountry.Items.Add(k);
             cboCountry.SelectedIndex = 0;
             cboCountry.SelectedIndexChanged += (s, e) => Recalc();
             pnlSend.Controls.Add(cboCountry);
 
-            pnlIntlSection = new Panel { Location = new Point(10, y + 38), Size = new Size(1240, 50), BackColor = Color.FromArgb(242, 255, 242), Visible = false };
+            // International zone info panel
+            pnlIntlSection = new Panel
+            {
+                Location = new Point(10, y + 60),
+                Size = new Size(1240, 44),
+                BackColor = Color.FromArgb(242, 255, 242),
+                Visible = false
+            };
+            pnlIntlSection.Controls.Add(new Label
+            {
+                Text = "Zone 1 Europe x1.8  |  Zone 2 N.Europe x2.2  |  Zone 3 USA/UAE x3.0  |  Zone 4 World x3.5-3.8",
+                Font = new Font("Segoe UI", 9),
+                ForeColor = Color.FromArgb(20, 80, 40),
+                Location = new Point(12, 12),
+                Size = new Size(1210, 20),
+                BackColor = Color.Transparent
+            });
             pnlSend.Controls.Add(pnlIntlSection);
-            pnlIntlSection.Controls.Add(new Label { Text = "Zone 1 Europe x1.8  |  Zone 2 N.Europe x2.2  |  Zone 3 USA/UAE x3.0  |  Zone 4 World x3.5-3.8", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(20, 80, 40), Location = new Point(12, 14), Size = new Size(1210, 22), BackColor = Color.Transparent });
 
-            rbDomestic.CheckedChanged += (s, e) => { bool d = rbDomestic.Checked; cboCountry.Visible = !d; pnlIntlSection.Visible = !d; Recalc(); };
-            rbInternational.CheckedChanged += (s, e) => { bool d = rbDomestic.Checked; cboCountry.Visible = !d; pnlIntlSection.Visible = !d; Recalc(); };
-            y += 100;
+            // Toggle between UK and International controls
+            rbDomestic.CheckedChanged += (s, e) =>
+            {
+                bool dom = rbDomestic.Checked;
+                cboUKCity.Visible = dom;
+                cboCountry.Visible = !dom;
+                pnlIntlSection.Visible = !dom;
 
-            // Step 4 - Receiver details
+                // Show/hide labels
+                foreach (Control ctrl in pnlSend.Controls)
+                {
+                    if (ctrl.Name == "lblUKCity") ctrl.Visible = dom;
+                    if (ctrl.Name == "lblIntlCountry") ctrl.Visible = !dom;
+                }
+                Recalc();
+            };
+            rbInternational.CheckedChanged += (s, e) =>
+            {
+                bool dom = rbDomestic.Checked;
+                cboUKCity.Visible = dom;
+                cboCountry.Visible = !dom;
+                pnlIntlSection.Visible = !dom;
+
+                foreach (Control ctrl in pnlSend.Controls)
+                {
+                    if (ctrl.Name == "lblUKCity") ctrl.Visible = dom;
+                    if (ctrl.Name == "lblIntlCountry") ctrl.Visible = !dom;
+                }
+                Recalc();
+            };
+
+            // Move y down enough to clear both the dropdowns and the zone info panel
+            y += 120;
+
+            // Step 4 - Full Receiver Details
             SH("Step 4 -- Receiver Details", y); y += 36;
 
-            pnlSend.Controls.Add(new Label { Text = "RECEIVER NAME", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(400, 16) });
-            pnlSend.Controls.Add(new Label { Text = "RECEIVER ADDRESS", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(440, y), Size = new Size(400, 16) });
+            // Row 1 - Receiver Name and Phone
+            pnlSend.Controls.Add(new Label { Text = "RECEIVER FULL NAME", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(300, 16) });
+            pnlSend.Controls.Add(new Label { Text = "RECEIVER PHONE NUMBER", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(450, y), Size = new Size(300, 16) });
             y += 18;
-
-            txtRcvName = new TextBox { Location = new Point(10, y), Size = new Size(420, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
-            txtRcvAddr = new TextBox { Location = new Point(440, y), Size = new Size(820, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
-            pnlSend.Controls.AddRange(new Control[] { txtRcvName, txtRcvAddr });
+            txtRcvName = new TextBox { Location = new Point(10, y), Size = new Size(430, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            var txtRcvPhone = new TextBox { Location = new Point(450, y), Size = new Size(350, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlSend.Controls.AddRange(new Control[] { txtRcvName, txtRcvPhone });
             y += 46;
 
-            // Email confirmation field
-            pnlSend.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com) -- confirmation will be sent here", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(700, 16) });
+            // Row 2 - Receiver Email
+            pnlSend.Controls.Add(new Label { Text = "RECEIVER EMAIL ADDRESS", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(400, 16) });
+            y += 18;
+            var txtRcvEmail = new TextBox { Location = new Point(10, y), Size = new Size(560, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlSend.Controls.Add(txtRcvEmail);
+            y += 46;
+
+            // Row 3 - Receiver Address
+            pnlSend.Controls.Add(new Label { Text = "RECEIVER STREET ADDRESS", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(400, 16) });
+            y += 18;
+            txtRcvAddr = new TextBox { Location = new Point(10, y), Size = new Size(1240, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlSend.Controls.Add(txtRcvAddr);
+            y += 46;
+
+            // Row 4 - Receiver City and Postcode
+            pnlSend.Controls.Add(new Label { Text = "RECEIVER CITY", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(200, 16) });
+            pnlSend.Controls.Add(new Label { Text = "RECEIVER POSTCODE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(350, y), Size = new Size(200, 16) });
+            y += 18;
+            var txtRcvCity = new TextBox { Location = new Point(10, y), Size = new Size(330, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            var txtRcvPost = new TextBox { Location = new Point(350, y), Size = new Size(200, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlSend.Controls.AddRange(new Control[] { txtRcvCity, txtRcvPost });
+            y += 46;
+
+            // Row 5 - Special delivery instructions
+            pnlSend.Controls.Add(new Label { Text = "SPECIAL DELIVERY INSTRUCTIONS (optional)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(600, 16) });
+            y += 18;
+            var txtRcvInstructions = new TextBox { Location = new Point(10, y), Size = new Size(1240, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle, Text = "e.g. Leave at door, ring bell twice, deliver to neighbour at No.12", ForeColor = Color.LightGray };
+            txtRcvInstructions.Enter += (s, e) => { if (txtRcvInstructions.ForeColor == Color.LightGray) { txtRcvInstructions.Text = ""; txtRcvInstructions.ForeColor = Color.Black; } };
+            txtRcvInstructions.Leave += (s, e) => { if (txtRcvInstructions.Text == "") { txtRcvInstructions.Text = "e.g. Leave at door, ring bell twice, deliver to neighbour at No.12"; txtRcvInstructions.ForeColor = Color.LightGray; } };
+            pnlSend.Controls.Add(txtRcvInstructions);
+            y += 46;
+
+            // Row 6 - Sender email
+            pnlSend.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com) -- order confirmation sent here", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(10, y), Size = new Size(700, 16) });
             y += 18;
             txtSenderEmail = new TextBox { Location = new Point(10, y), Size = new Size(560, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
             pnlSend.Controls.Add(txtSenderEmail);
