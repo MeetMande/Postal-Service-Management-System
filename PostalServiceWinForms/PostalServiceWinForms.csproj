@@ -65,6 +65,9 @@
     <Compile Include="Forms\DeliveriesView.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Forms\FindUsView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Forms\HelpView.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -78,6 +81,9 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Forms\ProfileView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Forms\StampsView.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="LoginForm.cs">

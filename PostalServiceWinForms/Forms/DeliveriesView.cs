@@ -2,8 +2,8 @@
 // PostalMS - Postal Service Management System
 // CST2550 Coursework - Middlesex University
 //
-// Deliveries page showing all delivery records linked to the user's parcels.
-// Displays driver name, route, status, attempt count and notes.
+// Deliveries page showing detailed tracking information for each parcel.
+// Shows driver details, route, status timeline, attempt history and expected delivery.
 // Filters by All, Assigned, In Transit and Delivered.
 
 using System;
@@ -16,7 +16,7 @@ namespace PostalServiceWinForms.Forms
     public class DeliveriesView : UserControl
     {
         private DataGridView dgv;
-        private Panel pnlBottom;
+        private Panel pnlDetail;
         private DatabaseHelper db;
         private string userID;
         private Color Red = Color.FromArgb(180, 30, 30);
@@ -34,11 +34,8 @@ namespace PostalServiceWinForms.Forms
 
         private void Build()
         {
-            // Controls are added in reverse order when using Dock
-            // Add Fill control FIRST, then Top/Bottom after
-
-            // -- BOTTOM detail panel --
-            pnlBottom = new Panel
+            // Detail panel at the bottom
+            pnlDetail = new Panel
             {
                 Dock = DockStyle.Bottom,
                 Height = 0,
@@ -46,9 +43,9 @@ namespace PostalServiceWinForms.Forms
                 BorderStyle = BorderStyle.FixedSingle,
                 Visible = false
             };
-            this.Controls.Add(pnlBottom);
+            this.Controls.Add(pnlDetail);
 
-            // -- GRID (Fill) --
+            // Grid in the middle
             dgv = new DataGridView
             {
                 Dock = DockStyle.Fill,
@@ -69,262 +66,281 @@ namespace PostalServiceWinForms.Forms
             dgv.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(255, 248, 248);
             dgv.SelectionChanged += DgvSelect;
             dgv.CellFormatting += StatusFmt;
-            dgv.CellClick += DgvCellClick;
             this.Controls.Add(dgv);
 
-            // -- HEADER (Top) -- added last so it appears at top --
-            Panel hdr = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 108,
-                BackColor = Color.FromArgb(245, 245, 245)
-            };
+            // Header at the top
+            Panel hdr = new Panel { Dock = DockStyle.Top, Height = 110, BackColor = Color.FromArgb(245, 245, 245) };
             this.Controls.Add(hdr);
 
             hdr.Controls.Add(new Label
             {
-                Text = "My Deliveries",
-                Font = new Font("Segoe UI", 22, FontStyle.Bold),
+                Text = "Deliveries",
+                Font = new Font("Segoe UI", 16, FontStyle.Bold),
                 ForeColor = Red,
-                Location = new Point(0, 4),
-                Size = new Size(400, 38)
+                Location = new Point(0, 8),
+                Size = new Size(300, 30)
             });
             hdr.Controls.Add(new Label
             {
-                Text = "Click   View  on any row to see parcel details     Click any row for delivery status",
+                Text = "Track your parcels in real time. Click any row to see full delivery details, driver information and timeline.",
                 Font = new Font("Segoe UI", 10),
                 ForeColor = Color.Gray,
-                Location = new Point(0, 46),
+                Location = new Point(0, 40),
                 Size = new Size(900, 20)
             });
 
-            // Filter buttons row
-            hdr.Controls.Add(new Label
+            // Filter buttons
+            int fx = 0;
+            foreach (string f in new[] { "All", "Assigned", "In Transit", "Delivered" })
             {
-                Text = "Filter:",
-                Font = new Font("Segoe UI", 10),
-                ForeColor = Color.Gray,
-                Location = new Point(0, 74),
-                Size = new Size(52, 26)
-            });
-            Button bAll = FB(hdr, "All", 56, () => LoadDeliveries("All"));
-            Button bAss = FB(hdr, "Assigned", 145, () => LoadDeliveries("Assigned"));
-            Button bInP = FB(hdr, "In Progress", 245, () => LoadDeliveries("In Progress"));
-            Button bCom = FB(hdr, "Completed ", 374, () => LoadDeliveries("Completed"));
-            Button bFail = FB(hdr, "Failed ", 512, () => LoadDeliveries("Failed"));
-            Button bRet = FB(hdr, "Return to Depot", 616, () => LoadDeliveries("Return to Depot"));
-            SetActive(bAll);
-        }
-
-        private Button FB(Panel p, string text, int x, Action click)
-        {
-            Button btn = new Button
-            {
-                Text = text,
-                Location = new Point(x, 72),
-                Size = new Size(text.Length > 10 ? 136 : 88, 30),
-                Font = new Font("Segoe UI", 9),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.White,
-                ForeColor = Color.FromArgb(60, 60, 60),
-                Cursor = Cursors.Hand
-            };
-            btn.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
-            btn.Click += (s, e) => { click(); SetActive(btn); };
-            p.Controls.Add(btn);
-            return btn;
-        }
-
-        private void SetActive(Button btn)
-        {
-            if (activeFilter != null) { activeFilter.BackColor = Color.White; activeFilter.ForeColor = Color.FromArgb(60, 60, 60); }
-            if (btn != null) { btn.BackColor = Red; btn.ForeColor = Color.White; }
-            activeFilter = btn;
+                string filter = f;
+                Button btn = new Button
+                {
+                    Text = f,
+                    Location = new Point(fx, 68),
+                    Size = new Size(130, 34),
+                    Font = new Font("Segoe UI", 9),
+                    BackColor = f == "All" ? Red : Color.White,
+                    ForeColor = f == "All" ? Color.White : Red,
+                    FlatStyle = FlatStyle.Flat,
+                    Cursor = Cursors.Hand,
+                    Tag = f
+                };
+                btn.FlatAppearance.BorderColor = Color.FromArgb(210, 190, 190);
+                if (f == "All") activeFilter = btn;
+                btn.Click += (s, e) =>
+                {
+                    if (activeFilter != null) { activeFilter.BackColor = Color.White; activeFilter.ForeColor = Red; }
+                    btn.BackColor = Red; btn.ForeColor = Color.White;
+                    activeFilter = btn;
+                    LoadDeliveries(filter);
+                };
+                hdr.Controls.Add(btn);
+                fx += 138;
+            }
         }
 
         private void LoadDeliveries(string filter)
         {
-            pnlBottom.Visible = false;
-            pnlBottom.Height = 0;
-            pnlBottom.Controls.Clear();
-
             try
             {
                 DataTable dt = filter == "All"
                     ? db.GetDeliveriesForUser(userID)
                     : db.GetDeliveriesForUserByStatus(userID, filter);
-
-                if (!dt.Columns.Contains(" View"))
-                    dt.Columns.Add(" View", typeof(string));
-                foreach (DataRow row in dt.Rows)
-                    row[" View"] = " View";
-
                 dgv.DataSource = dt;
-
-                if (dgv.Columns.Contains("AssignedDate"))
-                    dgv.Columns["AssignedDate"].DefaultCellStyle.Format = "dd/MM/yyyy";
-                if (dgv.Columns.Contains("LastAttemptDate"))
-                    dgv.Columns["LastAttemptDate"].DefaultCellStyle.Format = "dd/MM/yyyy";
-
-                if (dgv.Columns.Contains(" View"))
-                {
-                    var col = dgv.Columns[" View"];
-                    col.Width = 85;
-                    col.FillWeight = 5;
-                    col.DefaultCellStyle.ForeColor = Color.FromArgb(30, 80, 200);
-                    col.DefaultCellStyle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-                    col.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
-                    col.DefaultCellStyle.BackColor = Color.FromArgb(235, 242, 255);
-                }
+                HideColumns();
             }
             catch { }
         }
 
-        private void DgvCellClick(object sender, DataGridViewCellEventArgs e)
+        private void HideColumns()
         {
-            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
-            if (dgv.Columns[e.ColumnIndex].Name == " View")
-            {
-                string tid = dgv.Rows[e.RowIndex].Cells["TrackingID"].Value?.ToString() ?? "";
-                if (!string.IsNullOrEmpty(tid)) ShowParcelPanel(tid);
-            }
+            // Hide columns not needed in the grid view
+            string[] hide = { "SenderName", "ParcelType" };
+            foreach (string col in hide)
+                if (dgv.Columns.Contains(col)) dgv.Columns[col].Visible = false;
+
+            // Format dates
+            if (dgv.Columns.Contains("AssignedDate"))
+                dgv.Columns["AssignedDate"].DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
+            if (dgv.Columns.Contains("LastAttemptDate"))
+                dgv.Columns["LastAttemptDate"].DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
         }
 
-        private void ShowParcelPanel(string tid)
-        {
-            pnlBottom.Controls.Clear();
-            pnlBottom.Height = 258;
-            pnlBottom.Visible = true;
-
-            pnlBottom.Controls.Add(new Panel { Dock = DockStyle.Top, Height = 5, BackColor = Red });
-
-            Panel titleRow = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = Color.FromArgb(255, 248, 248) };
-            titleRow.Controls.Add(new Label { Text = "  Parcel Details -- " + tid, Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = Red, Location = new Point(12, 7), Size = new Size(700, 26) });
-            AddCloseBtn(titleRow, () => { pnlBottom.Visible = false; pnlBottom.Height = 0; });
-            pnlBottom.Controls.Add(titleRow);
-
-            Panel body = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(255, 248, 248), Padding = new Padding(14, 8, 14, 8) };
-            pnlBottom.Controls.Add(body);
-
-            try
-            {
-                DataTable dt = db.SearchParcel(tid);
-                if (dt.Rows.Count == 0)
-                { body.Controls.Add(new Label { Text = "No parcel data found.", Font = new Font("Segoe UI", 10), ForeColor = Color.Gray, Location = new Point(14, 20), Size = new Size(400, 26) }); return; }
-
-                DataRow r = dt.Rows[0];
-                void A(string l, string v, int x, int y)
-                {
-                    body.Controls.Add(new Label { Text = l, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(x, y), Size = new Size(170, 15) });
-                    body.Controls.Add(new Label { Text = v, Font = new Font("Segoe UI", 10), ForeColor = Color.FromArgb(30, 30, 30), Location = new Point(x, y + 16), Size = new Size(195, 22) });
-                }
-
-                A("TRACKING ID", r["TrackingID"].ToString(), 0, 4);
-                A("TYPE", r["ParcelType"].ToString(), 205, 4);
-                A("SERVICE", r["ServiceType"].ToString(), 410, 4);
-                A("STATUS", r["Status"].ToString(), 615, 4);
-                A("DATE SENT", DateTime.TryParse(r["DateSent"].ToString(), out DateTime ds) ? ds.ToString("dd/MM/yyyy") : "--", 820, 4);
-                A("PRICE", "GBP" + r["Price"], 1025, 4);
-                A("SENDER", r["SenderName"].ToString(), 0, 58);
-                A("SENDER ADDRESS", r["SenderAddress"].ToString(), 205, 58);
-                A("RECEIVER", r["ReceiverName"].ToString(), 615, 58);
-                A("RECEIVER ADDR", r["ReceiverAddress"].ToString(), 820, 58);
-                A("WEIGHT", r["Weight"] + " kg", 0, 112);
-                A("SIZE", r["Size"].ToString(), 205, 112);
-                A("INTERNATIONAL", r["IsInternational"]?.ToString() == "True" ? "Yes -- " + r["DestinationCountry"] : "No (UK)", 410, 112);
-                A("EST. DELIVERY", r["EstimatedDelivery"] == DBNull.Value ? "TBC" : DateTime.TryParse(r["EstimatedDelivery"].ToString(), out DateTime ed) ? ed.ToString("dd/MM/yyyy") : "TBC", 615, 112);
-
-                Color bc = r["Status"].ToString() == "Delivered" ? Green : r["Status"].ToString() == "Failed" ? Color.FromArgb(160, 30, 30) : Red;
-                body.Controls.Add(new Label { Text = "  " + r["Status"] + "  ", Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Color.White, BackColor = bc, Location = new Point(820, 112), AutoSize = true, Padding = new Padding(6, 3, 6, 3) });
-            }
-            catch (Exception ex)
-            { body.Controls.Add(new Label { Text = "Error: " + ex.Message, Font = new Font("Segoe UI", 9), ForeColor = Color.Red, Location = new Point(14, 20), Size = new Size(800, 22) }); }
-        }
-
+        // Show detailed tracking info when a delivery row is clicked
         private void DgvSelect(object sender, EventArgs e)
         {
             if (dgv.CurrentRow == null) return;
-            if (dgv.CurrentCell != null && dgv.CurrentCell.ColumnIndex >= 0 &&
-                dgv.CurrentCell.ColumnIndex < dgv.Columns.Count &&
-                dgv.Columns[dgv.CurrentCell.ColumnIndex].Name == " View") return;
-
-            pnlBottom.Controls.Clear();
-            pnlBottom.Height = 226;
-            pnlBottom.Visible = true;
 
             var row = dgv.CurrentRow;
-            string status = row.Cells["DeliveryStatus"].Value?.ToString() ?? "--";
+
+            // Get all field values
+            string delID = row.Cells["DeliveryID"].Value?.ToString() ?? "--";
             string trackID = row.Cells["TrackingID"].Value?.ToString() ?? "--";
             string driver = row.Cells["DriverName"].Value?.ToString() ?? "Auto-Assigned";
+            string route = row.Cells["Route"].Value?.ToString() ?? "Standard Route";
+            string status = row.Cells["DeliveryStatus"].Value?.ToString() ?? "--";
+            string attempts = row.Cells["AttemptCount"].Value?.ToString() ?? "0";
+            string assigned = row.Cells["AssignedDate"].Value?.ToString() ?? "--";
+            string lastAttempt = row.Cells["LastAttemptDate"].Value?.ToString() ?? "--";
             string notes = row.Cells["Notes"].Value?.ToString() ?? "No notes";
-            int attempts = Convert.ToInt32(row.Cells["AttemptCount"].Value ?? 0);
-            string lastAtt = row.Cells["LastAttemptDate"].Value?.ToString() ?? "";
-            string rcv = row.Cells["ReceiverName"].Value?.ToString() ?? "--";
-            string ptype = row.Cells["ParcelType"].Value?.ToString() ?? "--";
+            string receiver = row.Cells["ReceiverName"].Value?.ToString() ?? "--";
 
-            pnlBottom.Controls.Add(new Panel { Dock = DockStyle.Top, Height = 5, BackColor = Red });
+            // Parse dates for display
+            DateTime assignedDate;
+            bool hasAssigned = DateTime.TryParse(assigned, out assignedDate);
+            string assignedStr = hasAssigned ? assignedDate.ToString("dd MMM yyyy, HH:mm") : "--";
 
-            Panel titleRow = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = Color.White };
-            titleRow.Controls.Add(new Label { Text = $"  Delivery -- {trackID}  ({ptype})", Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = Red, Location = new Point(12, 7), Size = new Size(500, 26) });
-            Button btnP = new Button { Text = "  View Parcel", Location = new Point(530, 6), Size = new Size(155, 28), Font = new Font("Segoe UI", 9, FontStyle.Bold), BackColor = Color.FromArgb(30, 80, 180), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
-            btnP.FlatAppearance.BorderSize = 0;
-            btnP.Click += (s2, e2) => ShowParcelPanel(trackID);
-            titleRow.Controls.Add(btnP);
-            AddCloseBtn(titleRow, () => { pnlBottom.Visible = false; pnlBottom.Height = 0; });
-            pnlBottom.Controls.Add(titleRow);
-
-            Panel body = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(14, 6, 14, 6) };
-            pnlBottom.Controls.Add(body);
-
-            Color sc = status == "Completed" ? Green : status == "Failed" || status == "Return to Depot" ? Color.FromArgb(170, 35, 35) : status == "In Progress" ? Color.FromArgb(160, 95, 15) : Color.FromArgb(50, 80, 160);
-            body.Controls.Add(new Label { Text = "  " + status + "  ", Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Color.White, BackColor = sc, Location = new Point(0, 4), AutoSize = true, Padding = new Padding(8, 4, 8, 4) });
-
-            void DR(string l, string v, int x, int y)
+            // Calculate expected delivery based on status and assigned date
+            string expectedDelivery = "--";
+            if (hasAssigned)
             {
-                body.Controls.Add(new Label { Text = l, Font = new Font("Segoe UI", 8), ForeColor = Color.Gray, Location = new Point(x, y), Size = new Size(175, 15) });
-                body.Controls.Add(new Label { Text = v, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Color.FromArgb(40, 20, 20), Location = new Point(x, y + 16), Size = new Size(210, 22) });
+                DateTime expected = assignedDate.AddDays(3);
+                expectedDelivery = expected.ToString("dd MMM yyyy");
             }
 
-            DR("Tracking ID", trackID, 0, 44);
-            DR("Receiver", rcv, 235, 44);
-            DR("Driver", driver, 470, 44);
-            DR("Attempts", attempts + " / 3", 705, 44);
-            DR("Last Attempt", string.IsNullOrEmpty(lastAtt) ? "N/A" : lastAtt, 940, 44);
-            DR("Notes", notes, 0, 104);
+            // Build the detail panel
+            pnlDetail.Controls.Clear();
+            pnlDetail.Size = new Size(this.Width, 280);
+            pnlDetail.Visible = true;
 
-            string msg; Color mf;
+            // Header bar
+            Panel headerBar = new Panel
+            {
+                Location = new Point(0, 0),
+                Size = new Size(pnlDetail.Width, 40),
+                BackColor = Red
+            };
+            headerBar.Controls.Add(new Label
+            {
+                Text = "Delivery Details -- " + trackID + "   |   Status: " + status,
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                ForeColor = Color.White,
+                Location = new Point(12, 10),
+                Size = new Size(800, 22),
+                BackColor = Color.Transparent
+            });
+            pnlDetail.Controls.Add(headerBar);
+
+            // Section: Driver and Route
+            AddDetailSection(pnlDetail, "Driver Information", 12, 52);
+            AddDetailField(pnlDetail, "Driver Name", driver, 12, 76);
+            AddDetailField(pnlDetail, "Route", route, 220, 76);
+            AddDetailField(pnlDetail, "Delivery ID", delID, 440, 76);
+            AddDetailField(pnlDetail, "Receiver", receiver, 660, 76);
+
+            // Section: Tracking Timeline
+            AddDetailSection(pnlDetail, "Tracking Timeline", 12, 120);
+            AddDetailField(pnlDetail, "Assigned Date", assignedStr, 12, 144);
+            AddDetailField(pnlDetail, "Expected Delivery", expectedDelivery, 220, 144);
+            AddDetailField(pnlDetail, "Attempt Count", attempts + " attempt(s)", 440, 144);
+            AddDetailField(pnlDetail, "Last Attempt",
+                lastAttempt != "--" && DateTime.TryParse(lastAttempt, out DateTime la)
+                    ? la.ToString("dd MMM yyyy, HH:mm") : "--",
+                660, 144);
+
+            // Section: Current Location / Status
+            AddDetailSection(pnlDetail, "Current Status", 12, 188);
+
+            // Status explanation based on current status
+            string statusExplanation = GetStatusExplanation(status, assignedStr, expectedDelivery);
+            pnlDetail.Controls.Add(new Label
+            {
+                Text = statusExplanation,
+                Font = new Font("Segoe UI", 10),
+                ForeColor = Color.FromArgb(30, 30, 80),
+                Location = new Point(12, 210),
+                Size = new Size(900, 40),
+                BackColor = Color.White
+            });
+
+            // Notes
+            if (notes != "No notes" && !string.IsNullOrEmpty(notes))
+            {
+                pnlDetail.Controls.Add(new Label
+                {
+                    Text = "Notes: " + notes,
+                    Font = new Font("Segoe UI", 9, FontStyle.Italic),
+                    ForeColor = Color.Gray,
+                    Location = new Point(12, 252),
+                    Size = new Size(900, 20),
+                    BackColor = Color.White
+                });
+            }
+
+            // Status progress tracker
+            string[] stages = { "Assigned", "In Transit", "Out for Delivery", "Delivered" };
+            int cur = Array.IndexOf(stages, status);
+            for (int i = 0; i < stages.Length; i++)
+            {
+                bool done = i <= cur;
+                pnlDetail.Controls.Add(new Label
+                {
+                    Text = (done ? ">> " : "   ") + stages[i],
+                    Font = new Font("Segoe UI", 9, done ? FontStyle.Bold : FontStyle.Regular),
+                    ForeColor = done ? Green : Color.LightGray,
+                    Location = new Point(950 + i * 200, 80),
+                    Size = new Size(195, 22),
+                    BackColor = Color.White
+                });
+            }
+        }
+
+        // Get a human readable status explanation
+        private string GetStatusExplanation(string status, string assignedStr, string expectedDelivery)
+        {
             switch (status)
             {
-                case "Completed": msg = "  Delivered successfully!"; mf = Green; break;
-                case "In Progress": msg = "  Out for delivery -- expected today or next working day."; mf = Color.FromArgb(140, 80, 0); break;
-                case "Failed": msg = attempts >= 3 ? "  Max attempts -- returning to depot. Contact help@postalms.com." : $"  Failed ({attempts} attempt(s)). Re-attempt in 1-2 days."; mf = Color.FromArgb(160, 30, 30); break;
-                case "Return to Depot": msg = "  Returned to depot. Contact help@postalms.com."; mf = Color.FromArgb(130, 20, 20); break;
-                case "Assigned": msg = "  Assigned -- awaiting collection."; mf = Color.FromArgb(40, 70, 160); break;
-                default: msg = "(i)  Being processed."; mf = Color.FromArgb(60, 60, 60); break;
+                case "Assigned":
+                    return "Your parcel has been assigned to a driver and is being prepared for collection. Assigned: " + assignedStr;
+                case "In Transit":
+                    return "Your parcel is currently on its way. It is moving through our delivery network towards the destination. Expected delivery: " + expectedDelivery;
+                case "Out for Delivery":
+                    return "Your parcel is out for delivery today. The driver is on their way to the delivery address. Please ensure someone is available to receive it.";
+                case "Delivered":
+                    return "Your parcel has been successfully delivered. If you did not receive it please contact us immediately.";
+                case "Failed":
+                    return "Delivery was attempted but was unsuccessful. Please check the notes for more information. You can request a redelivery or refund.";
+                default:
+                    return "Status: " + status + ". Expected delivery: " + expectedDelivery;
             }
-            body.Controls.Add(new Label { Text = msg, Font = new Font("Segoe UI", 10), ForeColor = mf, Location = new Point(0, 148), Size = new Size(1240, 22) });
         }
 
-        private void AddCloseBtn(Panel p, Action onClick)
+        // Helper: add a section label
+        private void AddDetailSection(Panel p, string title, int x, int y)
         {
-            Button b = new Button { Text = "", Size = new Size(32, 26), Font = new Font("Segoe UI", 10, FontStyle.Bold), BackColor = Color.White, FlatStyle = FlatStyle.Flat, ForeColor = Color.Gray, Cursor = Cursors.Hand, Anchor = AnchorStyles.Right | AnchorStyles.Top };
-            b.FlatAppearance.BorderColor = Color.FromArgb(210, 210, 210);
-            b.Location = new Point(p.Width - 38, 6);
-            b.Click += (s, e) => onClick();
-            p.Controls.Add(b);
+            p.Controls.Add(new Label
+            {
+                Text = title,
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                ForeColor = Red,
+                Location = new Point(x, y),
+                Size = new Size(300, 18),
+                BackColor = Color.White
+            });
+            p.Controls.Add(new Panel
+            {
+                Location = new Point(x, y + 18),
+                Size = new Size(p.Width - x - 12, 1),
+                BackColor = Color.FromArgb(230, 180, 180)
+            });
         }
 
+        // Helper: add a label + value pair
+        private void AddDetailField(Panel p, string label, string value, int x, int y)
+        {
+            p.Controls.Add(new Label
+            {
+                Text = label,
+                Font = new Font("Segoe UI", 8),
+                ForeColor = Color.Gray,
+                Location = new Point(x, y),
+                Size = new Size(200, 16),
+                BackColor = Color.White
+            });
+            p.Controls.Add(new Label
+            {
+                Text = value,
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 30, 80),
+                Location = new Point(x, y + 16),
+                Size = new Size(200, 22),
+                BackColor = Color.White
+            });
+        }
+
+        // Colour code the status column in the grid
         private void StatusFmt(object sender, DataGridViewCellFormattingEventArgs e)
         {
             var g = sender as DataGridView;
             if (g == null || e.ColumnIndex < 0 || e.ColumnIndex >= g.Columns.Count || g.Columns[e.ColumnIndex].Name != "DeliveryStatus" || e.Value == null) return;
             switch (e.Value.ToString())
             {
-                case "In Progress": e.CellStyle.ForeColor = Color.FromArgb(140, 80, 0); e.CellStyle.BackColor = Color.FromArgb(255, 243, 220); break;
-                case "Completed": e.CellStyle.ForeColor = Color.FromArgb(20, 110, 50); e.CellStyle.BackColor = Color.FromArgb(210, 248, 225); break;
+                case "In Transit": e.CellStyle.ForeColor = Color.FromArgb(140, 80, 0); e.CellStyle.BackColor = Color.FromArgb(255, 243, 220); break;
+                case "Delivered": e.CellStyle.ForeColor = Color.FromArgb(20, 110, 50); e.CellStyle.BackColor = Color.FromArgb(210, 248, 225); break;
                 case "Assigned": e.CellStyle.ForeColor = Color.FromArgb(50, 80, 160); e.CellStyle.BackColor = Color.FromArgb(220, 232, 255); break;
                 case "Failed": e.CellStyle.ForeColor = Color.FromArgb(160, 30, 30); e.CellStyle.BackColor = Color.FromArgb(255, 220, 220); break;
-                case "Return to Depot": e.CellStyle.ForeColor = Color.FromArgb(120, 20, 20); e.CellStyle.BackColor = Color.FromArgb(255, 200, 200); break;
+                case "Out for Delivery": e.CellStyle.ForeColor = Color.FromArgb(80, 45, 160); e.CellStyle.BackColor = Color.FromArgb(235, 225, 255); break;
             }
         }
     }
