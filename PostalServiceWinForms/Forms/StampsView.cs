@@ -3,10 +3,9 @@
 // CST2550 Coursework - Middlesex University
 //
 // Stamps page - completely separate from parcels.
-// Browse stamps, order with delivery or pickup,
-// choose to pay now (card) or pay in store,
-// missed pickup logic with automatic rescheduling,
-// track all stamp orders with live status.
+// Order stamps like ordering food - choose Delivery or Collect,
+// fill in details, choose how to pay (online or in store).
+// Missed pickup logic with auto reschedule after 48 hours.
 
 using System;
 using System.Drawing;
@@ -29,28 +28,44 @@ namespace PostalServiceWinForms.Forms
         private Panel pnlBrowse, pnlOrder, pnlMyOrders;
         private Button btnBrowse, btnOrder, btnMyOrders;
 
-        // Order form controls
-        private ComboBox cboStampType, cboQty, cboDeliveryType, cboPickupLocation, cboPickupTime;
-        private ComboBox cboPayment;
-        private TextBox txtOrderEmail, txtOrderName, txtOrderAddress;
-        private Label lblOrderTotal, lblOrderBreakdown, lblPaymentNote;
-        private Panel pnlDeliverySection, pnlPickupSection, pnlPaymentSection;
-        private DateTimePicker dtPickup;
+        // Delivery vs Collect selection cards
+        private Panel pnlDeliveryCard, pnlCollectCard;
+        private bool isDelivery = true;
 
-        // Stamp order history stored in memory for this session
+        // Delivery details section
+        private Panel pnlDeliveryDetails, pnlCollectDetails;
+        private TextBox txtDeliveryName, txtDeliveryAddr, txtDeliveryCity, txtDeliveryPost, txtDeliveryEmail;
+
+        // Collect details section
+        private ComboBox cboPickupLocation, cboPickupTime;
+        private DateTimePicker dtPickup;
+        private TextBox txtCollectEmail;
+
+        // Stamp selection
+        private ComboBox cboStampType, cboQty;
+
+        // Delivery speed (only for delivery)
+        private ComboBox cboDeliverySpeed;
+
+        // Payment
+        private Panel pnlPayOnline, pnlPayStore;
+        private bool payOnline = true;
+
+        // Price labels
+        private Label lblBreakdown, lblTotal;
+
+        // Order history
         private List<StampOrder> stampOrders = new List<StampOrder>();
 
-        // Stamp order model
         private class StampOrder
         {
-            public string Id, Type, Method, Status, Date, PaymentMethod, Location, TimeSlot, Email;
+            public string Id, Type, Method, Status, Date, Payment, Location, TimeSlot, Email, Address;
             public int Qty;
             public double Total;
             public bool Missed;
             public string RescheduleDate;
         }
 
-        // Stamp prices per unit
         private Dictionary<string, double> stampPrices = new Dictionary<string, double>
         {
             { "First Class (1ST)",        1.10 },
@@ -61,7 +76,6 @@ namespace PostalServiceWinForms.Forms
             { "Signed For (SIGN)",        1.95 },
         };
 
-        // Pickup locations
         private string[] pickupLocations =
         {
             "PostalMS Hendon Centre -- The Burroughs, Hendon NW4 4BT",
@@ -72,7 +86,6 @@ namespace PostalServiceWinForms.Forms
             "Tesco Golders Green -- 186 Golders Green Road NW11 9AA",
         };
 
-        // Available pickup time slots
         private string[] pickupTimes =
         {
             "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
@@ -90,30 +103,26 @@ namespace PostalServiceWinForms.Forms
 
         private void Build()
         {
-            // Top tab bar
             Panel topBar = new Panel { Dock = DockStyle.Top, Height = 110, BackColor = Color.White };
             topBar.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Color.FromArgb(218, 218, 218)), 0, 109, topBar.Width, 109);
             this.Controls.Add(topBar);
 
             topBar.Controls.Add(new Label { Text = "Stamps", Font = new Font("Segoe UI", 16, FontStyle.Bold), ForeColor = Red, Location = new Point(10, 10), Size = new Size(200, 34) });
-            topBar.Controls.Add(new Label { Text = "Browse, order and track your stamps -- completely separate from parcel deliveries.", Font = new Font("Segoe UI", 10), ForeColor = Grey, Location = new Point(10, 46), Size = new Size(900, 20) });
+            topBar.Controls.Add(new Label { Text = "Browse and order stamps for delivery or collection -- like ordering food, your choice.", Font = new Font("Segoe UI", 10), ForeColor = Grey, Location = new Point(10, 46), Size = new Size(900, 20) });
 
             btnBrowse = Tab(topBar, "Browse Stamps", 10, 70, () => SwTab("browse"));
             btnOrder = Tab(topBar, "Order Stamps", 180, 70, () => SwTab("order"));
             btnMyOrders = Tab(topBar, "My Stamp Orders", 350, 70, () => SwTab("orders"));
             SetTab(btnBrowse);
 
-            // Browse panel
             pnlBrowse = new Panel { Dock = DockStyle.Fill, BackColor = LightBg, AutoScroll = true, Visible = true };
             this.Controls.Add(pnlBrowse);
             BuildBrowse();
 
-            // Order panel
             pnlOrder = new Panel { Dock = DockStyle.Fill, BackColor = LightBg, AutoScroll = true, Visible = false };
             this.Controls.Add(pnlOrder);
             BuildOrder();
 
-            // My Orders panel
             pnlMyOrders = new Panel { Dock = DockStyle.Fill, BackColor = LightBg, AutoScroll = true, Visible = false };
             this.Controls.Add(pnlMyOrders);
             BuildMyOrders();
@@ -157,7 +166,6 @@ namespace PostalServiceWinForms.Forms
             }
             y = sy + 230;
 
-            // Books of stamps
             SH(pnlBrowse, "Stamp Books and Sheets", y); y += 40;
             var books = new (string sym, string name, string price, string each, string saving)[]
             {
@@ -196,8 +204,8 @@ namespace PostalServiceWinForms.Forms
         {
             int y = 16;
 
-            // Step 1 - Stamp type and quantity
-            SH2(pnlOrder, "Step 1 -- Choose Your Stamps", y); y += 36;
+            // ---- STEP 1: Choose stamps ----
+            SH2(pnlOrder, "Step 1 -- What stamps do you want?", y); y += 36;
             pnlOrder.Controls.Add(new Label { Text = "STAMP TYPE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, y), Size = new Size(300, 16) });
             pnlOrder.Controls.Add(new Label { Text = "QUANTITY", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(480, y), Size = new Size(200, 16) });
             y += 18;
@@ -213,264 +221,322 @@ namespace PostalServiceWinForms.Forms
             cboQty.SelectedIndex = 0;
             cboQty.SelectedIndexChanged += (s, e) => RecalcOrder();
             pnlOrder.Controls.Add(cboQty);
-            y += 56;
+            y += 60;
 
-            // Step 2 - Delivery or Pickup
-            SH2(pnlOrder, "Step 2 -- Delivery or Pickup", y); y += 36;
-            pnlOrder.Controls.Add(new Label { Text = "HOW WOULD YOU LIKE TO RECEIVE YOUR STAMPS?", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, y), Size = new Size(600, 16) });
-            y += 18;
+            // ---- STEP 2: Delivery or Collect (like a food app) ----
+            SH2(pnlOrder, "Step 2 -- Delivery or Collection?", y); y += 36;
+            pnlOrder.Controls.Add(new Label { Text = "Choose how you want to receive your stamps:", Font = new Font("Segoe UI", 10), ForeColor = Grey, Location = new Point(10, y), Size = new Size(700, 22) });
+            y += 30;
 
-            cboDeliveryType = new ComboBox { Location = new Point(10, y), Size = new Size(400, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
-            cboDeliveryType.Items.AddRange(new object[]
-            {
-                "Home Delivery (GBP 1.50)",
-                "Express Home Delivery (GBP 3.99)",
-                "Click and Collect -- Free Pickup"
-            });
-            cboDeliveryType.SelectedIndex = 0;
-            pnlOrder.Controls.Add(cboDeliveryType);
-            y += 54;
+            // Delivery card
+            pnlDeliveryCard = new Panel { Location = new Point(10, y), Size = new Size(340, 100), BackColor = Color.White, Cursor = Cursors.Hand };
+            pnlDeliveryCard.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(340, 5), BackColor = Red, Name = "bar" });
+            pnlDeliveryCard.Controls.Add(new Label { Text = "Deliver to My Address", Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Red, Location = new Point(16, 14), Size = new Size(308, 26), BackColor = Color.Transparent });
+            pnlDeliveryCard.Controls.Add(new Label { Text = "Stamps delivered straight to your door.", Font = new Font("Segoe UI", 9), ForeColor = Grey, Location = new Point(16, 42), Size = new Size(308, 18), BackColor = Color.Transparent });
+            pnlDeliveryCard.Controls.Add(new Label { Text = "Standard GBP 1.50  |  Express GBP 3.99", Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Dark, Location = new Point(16, 62), Size = new Size(308, 18), BackColor = Color.Transparent });
+            pnlDeliveryCard.Controls.Add(new Label { Text = "2-3 days  |  Next day", Font = new Font("Segoe UI", 9), ForeColor = Green, Location = new Point(16, 80), Size = new Size(308, 18), BackColor = Color.Transparent });
+            pnlDeliveryCard.Click += (s, e) => SelectMethod(true);
+            foreach (Control c in pnlDeliveryCard.Controls) c.Click += (s, e) => SelectMethod(true);
+            pnlOrder.Controls.Add(pnlDeliveryCard);
 
-            // Fixed detail Y so nothing overlaps
+            // Collect card
+            pnlCollectCard = new Panel { Location = new Point(370, y), Size = new Size(340, 100), BackColor = Color.White, Cursor = Cursors.Hand };
+            pnlCollectCard.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(340, 5), BackColor = Color.FromArgb(200, 180, 180), Name = "bar" });
+            pnlCollectCard.Controls.Add(new Label { Text = "Click and Collect -- Free", Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Red, Location = new Point(16, 14), Size = new Size(308, 26), BackColor = Color.Transparent });
+            pnlCollectCard.Controls.Add(new Label { Text = "Pick up from your nearest PostalMS location.", Font = new Font("Segoe UI", 9), ForeColor = Grey, Location = new Point(16, 42), Size = new Size(308, 18), BackColor = Color.Transparent });
+            pnlCollectCard.Controls.Add(new Label { Text = "FREE -- No delivery charge", Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Green, Location = new Point(16, 62), Size = new Size(308, 18), BackColor = Color.Transparent });
+            pnlCollectCard.Controls.Add(new Label { Text = "Choose your date and time slot", Font = new Font("Segoe UI", 9), ForeColor = Grey, Location = new Point(16, 80), Size = new Size(308, 18), BackColor = Color.Transparent });
+            pnlCollectCard.Click += (s, e) => SelectMethod(false);
+            foreach (Control c in pnlCollectCard.Controls) c.Click += (s, e) => SelectMethod(false);
+            pnlOrder.Controls.Add(pnlCollectCard);
+            y += 120;
+
+            // ---- STEP 3: Your Details ----
+            SH2(pnlOrder, "Step 3 -- Your Details", y); y += 36;
+
             int detailY = y;
 
-            // Delivery section
-            pnlDeliverySection = new Panel { Location = new Point(10, detailY), Size = new Size(1240, 200), BackColor = Color.FromArgb(248, 248, 248), Visible = true };
-            pnlOrder.Controls.Add(pnlDeliverySection);
+            // Delivery details panel
+            pnlDeliveryDetails = new Panel { Location = new Point(10, detailY), Size = new Size(1240, 260), BackColor = Color.FromArgb(250, 250, 250), Visible = true };
+            pnlOrder.Controls.Add(pnlDeliveryDetails);
 
-            pnlDeliverySection.Controls.Add(new Label { Text = "YOUR FULL NAME", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 10), Size = new Size(300, 16) });
-            txtOrderName = new TextBox { Location = new Point(10, 28), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
-            pnlDeliverySection.Controls.Add(txtOrderName);
+            // Delivery speed
+            pnlDeliveryDetails.Controls.Add(new Label { Text = "DELIVERY SPEED", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 10), Size = new Size(300, 16) });
+            cboDeliverySpeed = new ComboBox { Location = new Point(10, 28), Size = new Size(400, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
+            cboDeliverySpeed.Items.Add("Standard Delivery -- GBP 1.50 -- 2-3 working days");
+            cboDeliverySpeed.Items.Add("Express Delivery -- GBP 3.99 -- Next working day");
+            cboDeliverySpeed.SelectedIndex = 0;
+            cboDeliverySpeed.SelectedIndexChanged += (s, e) => RecalcOrder();
+            pnlDeliveryDetails.Controls.Add(cboDeliverySpeed);
 
-            pnlDeliverySection.Controls.Add(new Label { Text = "DELIVERY ADDRESS", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 72), Size = new Size(300, 16) });
-            txtOrderAddress = new TextBox { Location = new Point(10, 90), Size = new Size(900, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
-            pnlDeliverySection.Controls.Add(txtOrderAddress);
+            // Name and Phone row
+            pnlDeliveryDetails.Controls.Add(new Label { Text = "FULL NAME", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 72), Size = new Size(300, 16) });
+            txtDeliveryName = new TextBox { Location = new Point(10, 90), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlDeliveryDetails.Controls.Add(txtDeliveryName);
 
-            pnlDeliverySection.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 134), Size = new Size(400, 16) });
-            txtOrderEmail = new TextBox { Location = new Point(10, 152), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
-            pnlDeliverySection.Controls.Add(txtOrderEmail);
+            // Address row
+            pnlDeliveryDetails.Controls.Add(new Label { Text = "DELIVERY ADDRESS", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 134), Size = new Size(300, 16) });
+            txtDeliveryAddr = new TextBox { Location = new Point(10, 152), Size = new Size(900, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlDeliveryDetails.Controls.Add(txtDeliveryAddr);
 
-            // Pickup section -- same Y, hidden by default
-            pnlPickupSection = new Panel { Location = new Point(10, detailY), Size = new Size(1240, 240), BackColor = Color.FromArgb(248, 248, 248), Visible = false };
-            pnlOrder.Controls.Add(pnlPickupSection);
+            // City and Postcode row
+            pnlDeliveryDetails.Controls.Add(new Label { Text = "CITY", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 196), Size = new Size(200, 16) });
+            pnlDeliveryDetails.Controls.Add(new Label { Text = "POSTCODE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(310, 196), Size = new Size(200, 16) });
+            pnlDeliveryDetails.Controls.Add(new Label { Text = "EMAIL (must be @gmail.com)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(580, 196), Size = new Size(300, 16) });
+            txtDeliveryCity = new TextBox { Location = new Point(10, 214), Size = new Size(290, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            txtDeliveryPost = new TextBox { Location = new Point(310, 214), Size = new Size(200, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            txtDeliveryEmail = new TextBox { Location = new Point(580, 214), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlDeliveryDetails.Controls.AddRange(new Control[] { txtDeliveryCity, txtDeliveryPost, txtDeliveryEmail });
 
-            pnlPickupSection.Controls.Add(new Label { Text = "SELECT PICKUP LOCATION", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 10), Size = new Size(400, 16) });
+            // Collect details panel
+            pnlCollectDetails = new Panel { Location = new Point(10, detailY), Size = new Size(1240, 270), BackColor = Color.FromArgb(250, 250, 250), Visible = false };
+            pnlOrder.Controls.Add(pnlCollectDetails);
+
+            pnlCollectDetails.Controls.Add(new Label { Text = "SELECT LOCATION", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 10), Size = new Size(400, 16) });
             cboPickupLocation = new ComboBox { Location = new Point(10, 28), Size = new Size(900, 34), Font = new Font("Segoe UI", 10), DropDownStyle = ComboBoxStyle.DropDownList };
             foreach (string loc in pickupLocations) cboPickupLocation.Items.Add(loc);
             cboPickupLocation.SelectedIndex = 0;
-            pnlPickupSection.Controls.Add(cboPickupLocation);
+            pnlCollectDetails.Controls.Add(cboPickupLocation);
 
-            pnlPickupSection.Controls.Add(new Label { Text = "SELECT PICKUP DATE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 72), Size = new Size(200, 16) });
-            dtPickup = new DateTimePicker { Location = new Point(10, 90), Size = new Size(260, 34), Font = new Font("Segoe UI", 11), MinDate = DateTime.Today.AddDays(1), MaxDate = DateTime.Today.AddDays(14) };
-            pnlPickupSection.Controls.Add(dtPickup);
+            pnlCollectDetails.Controls.Add(new Label { Text = "COLLECTION DATE", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 72), Size = new Size(200, 16) });
+            dtPickup = new DateTimePicker { Location = new Point(10, 90), Size = new Size(280, 34), Font = new Font("Segoe UI", 11), MinDate = DateTime.Today.AddDays(1), MaxDate = DateTime.Today.AddDays(14) };
+            pnlCollectDetails.Controls.Add(dtPickup);
 
-            pnlPickupSection.Controls.Add(new Label { Text = "SELECT TIME SLOT", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(290, 72), Size = new Size(200, 16) });
-            cboPickupTime = new ComboBox { Location = new Point(290, 90), Size = new Size(240, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
+            pnlCollectDetails.Controls.Add(new Label { Text = "TIME SLOT", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(310, 72), Size = new Size(200, 16) });
+            cboPickupTime = new ComboBox { Location = new Point(310, 90), Size = new Size(260, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
             foreach (string t in pickupTimes) cboPickupTime.Items.Add(t);
             cboPickupTime.SelectedIndex = 0;
-            pnlPickupSection.Controls.Add(cboPickupTime);
+            pnlCollectDetails.Controls.Add(cboPickupTime);
 
-            // Missed pickup warning info
-            Panel missedInfo = new Panel { Location = new Point(10, 134), Size = new Size(900, 46), BackColor = Color.FromArgb(255, 245, 220) };
-            missedInfo.Controls.Add(new Label
-            {
-                Text = "If you miss your pickup slot your order will be held for 48 hours.\nAfter 48 hours it is automatically rescheduled to the next available slot at the same location.",
-                Font = new Font("Segoe UI", 8),
-                ForeColor = Color.FromArgb(140, 80, 0),
-                Location = new Point(10, 6),
-                Size = new Size(880, 34),
-                BackColor = Color.Transparent
-            });
-            pnlPickupSection.Controls.Add(missedInfo);
+            // Missed pickup warning
+            Panel missedWarn = new Panel { Location = new Point(10, 134), Size = new Size(900, 50), BackColor = Color.FromArgb(255, 245, 220) };
+            missedWarn.Controls.Add(new Label { Text = "If you miss your collection slot:\n-- Your order is held for 48 hours. After 48 hours it is automatically rescheduled to the next available slot at the same location.", Font = new Font("Segoe UI", 8), ForeColor = Color.FromArgb(140, 80, 0), Location = new Point(10, 6), Size = new Size(880, 38), BackColor = Color.Transparent });
+            pnlCollectDetails.Controls.Add(missedWarn);
 
-            pnlPickupSection.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 192), Size = new Size(400, 16) });
-            var txtPickupEmail = new TextBox { Location = new Point(10, 210), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle, Name = "txtPickupEmail" };
-            pnlPickupSection.Controls.Add(txtPickupEmail);
+            pnlCollectDetails.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com)", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, 194), Size = new Size(400, 16) });
+            txtCollectEmail = new TextBox { Location = new Point(10, 212), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            pnlCollectDetails.Controls.Add(txtCollectEmail);
 
-            // Wire up delivery type toggle
-            cboDeliveryType.SelectedIndexChanged += (s, e) =>
-            {
-                bool isPickup = cboDeliveryType.SelectedIndex == 2;
-                pnlDeliverySection.Visible = !isPickup;
-                pnlPickupSection.Visible = isPickup;
-                RecalcOrder();
-                UpdatePaymentNote();
-            };
+            y = detailY + 280;
 
-            // Step 3 - Payment method -- fixed position below both sections
-            y = detailY + 260;
-            SH2(pnlOrder, "Step 3 -- Payment Method", y); y += 36;
+            // ---- STEP 4: Payment ----
+            SH2(pnlOrder, "Step 4 -- How would you like to pay?", y); y += 36;
+            pnlOrder.Controls.Add(new Label { Text = "Choose your payment method:", Font = new Font("Segoe UI", 10), ForeColor = Grey, Location = new Point(10, y), Size = new Size(700, 22) });
+            y += 30;
 
-            pnlOrder.Controls.Add(new Label { Text = "HOW WOULD YOU LIKE TO PAY?", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Grey, Location = new Point(10, y), Size = new Size(400, 16) });
-            y += 18;
+            // Pay Online card
+            pnlPayOnline = new Panel { Location = new Point(10, y), Size = new Size(340, 90), BackColor = Color.White, Cursor = Cursors.Hand };
+            pnlPayOnline.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(340, 5), BackColor = Red, Name = "bar" });
+            pnlPayOnline.Controls.Add(new Label { Text = "Pay Now Online", Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Red, Location = new Point(16, 14), Size = new Size(308, 26), BackColor = Color.Transparent });
+            pnlPayOnline.Controls.Add(new Label { Text = "Pay securely by credit or debit card.", Font = new Font("Segoe UI", 9), ForeColor = Grey, Location = new Point(16, 42), Size = new Size(308, 18), BackColor = Color.Transparent });
+            pnlPayOnline.Controls.Add(new Label { Text = "Card charged immediately on order.", Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Green, Location = new Point(16, 62), Size = new Size(308, 18), BackColor = Color.Transparent });
+            pnlPayOnline.Click += (s, e) => SelectPayment(true);
+            foreach (Control c in pnlPayOnline.Controls) c.Click += (s, e) => SelectPayment(true);
+            pnlOrder.Controls.Add(pnlPayOnline);
 
-            cboPayment = new ComboBox { Location = new Point(10, y), Size = new Size(400, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
-            cboPayment.Items.AddRange(new object[]
-            {
-                "Pay Now -- Credit or Debit Card (Online)",
-                "Pay In Store -- Pay When You Collect"
-            });
-            cboPayment.SelectedIndex = 0;
-            cboPayment.SelectedIndexChanged += (s, e) => { RecalcOrder(); UpdatePaymentNote(); };
-            pnlOrder.Controls.Add(cboPayment);
-            y += 44;
+            // Pay In Store card
+            pnlPayStore = new Panel { Location = new Point(370, y), Size = new Size(340, 90), BackColor = Color.White, Cursor = Cursors.Hand };
+            pnlPayStore.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(340, 5), BackColor = Color.FromArgb(200, 180, 180), Name = "bar" });
+            pnlPayStore.Controls.Add(new Label { Text = "Pay In Store", Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Red, Location = new Point(16, 14), Size = new Size(308, 26), BackColor = Color.Transparent });
+            pnlPayStore.Controls.Add(new Label { Text = "Reserve now, pay when you collect.", Font = new Font("Segoe UI", 9), ForeColor = Grey, Location = new Point(16, 42), Size = new Size(308, 18), BackColor = Color.Transparent });
+            pnlPayStore.Controls.Add(new Label { Text = "Only available with Click and Collect.", Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Orange, Location = new Point(16, 62), Size = new Size(308, 18), BackColor = Color.Transparent });
+            pnlPayStore.Click += (s, e) => SelectPayment(false);
+            foreach (Control c in pnlPayStore.Controls) c.Click += (s, e) => SelectPayment(false);
+            pnlOrder.Controls.Add(pnlPayStore);
+            y += 110;
 
-            // Payment note box
-            pnlPaymentSection = new Panel { Location = new Point(10, y), Size = new Size(900, 56), BackColor = Color.FromArgb(230, 255, 240), Visible = true };
-            lblPaymentNote = new Label { Location = new Point(12, 10), Size = new Size(876, 36), Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(10, 100, 40), BackColor = Color.Transparent };
-            pnlPaymentSection.Controls.Add(lblPaymentNote);
-            pnlOrder.Controls.Add(pnlPaymentSection);
-            y += 66;
+            // Pay in store info note
+            Panel payStoreNote = new Panel { Location = new Point(10, y), Size = new Size(700, 70), BackColor = Color.FromArgb(235, 245, 255), Visible = false, Name = "pnlPayStoreNote" };
+            payStoreNote.Controls.Add(new Label { Text = "Pay In Store Instructions:\n1. Place order now to reserve your stamps at the chosen location\n2. Visit on your selected date and show your Order ID at the counter\n3. Pay by cash or card -- if not paid within 48 hours your reservation is cancelled", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(20, 60, 140), Location = new Point(10, 6), Size = new Size(680, 58), BackColor = Color.Transparent });
+            pnlOrder.Controls.Add(payStoreNote);
+            y += 80;
 
-            // Pay in store info panel -- shown when pay in store selected
-            Panel payInStoreInfo = new Panel { Location = new Point(10, y), Size = new Size(900, 80), BackColor = Color.FromArgb(235, 245, 255), Visible = false, Name = "pnlPayInStoreInfo" };
-            payInStoreInfo.Controls.Add(new Label
-            {
-                Text = "Pay In Store Instructions:\n" +
-                             "1. Place your order now to reserve your stamps\n" +
-                             "2. Visit your chosen pickup location on your selected date\n" +
-                             "3. Show your Order ID at the counter and pay by cash or card\n" +
-                             "4. If you do not pay within 48 hours your reservation is cancelled",
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.FromArgb(20, 60, 140),
-                Location = new Point(12, 8),
-                Size = new Size(876, 64),
-                BackColor = Color.Transparent
-            });
-            pnlOrder.Controls.Add(payInStoreInfo);
-
-            cboPayment.SelectedIndexChanged += (s, e2) =>
-            {
-                bool payInStore = cboPayment.SelectedIndex == 1;
-                payInStoreInfo.Visible = payInStore;
-            };
-            y += 90;
-
-            // Step 4 - Price breakdown
-            SH2(pnlOrder, "Step 4 -- Price Breakdown", y); y += 36;
+            // ---- STEP 5: Price Breakdown ----
+            SH2(pnlOrder, "Step 5 -- Price Breakdown", y); y += 36;
 
             Panel priceBox = new Panel { Location = new Point(10, y), Size = new Size(580, 200), BackColor = Color.White };
             priceBox.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(580, 5), BackColor = Red });
-            lblOrderBreakdown = new Label { Location = new Point(14, 14), Size = new Size(552, 140), Font = new Font("Segoe UI", 10), ForeColor = Dark, BackColor = Color.Transparent };
-            priceBox.Controls.Add(lblOrderBreakdown);
+            lblBreakdown = new Label { Location = new Point(14, 14), Size = new Size(552, 140), Font = new Font("Segoe UI", 10), ForeColor = Dark, BackColor = Color.Transparent };
+            priceBox.Controls.Add(lblBreakdown);
             priceBox.Controls.Add(new Panel { Location = new Point(14, 158), Size = new Size(552, 1), BackColor = Color.FromArgb(220, 220, 220) });
-            lblOrderTotal = new Label { Location = new Point(14, 164), Size = new Size(552, 28), Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Red, BackColor = Color.Transparent };
-            priceBox.Controls.Add(lblOrderTotal);
+            lblTotal = new Label { Location = new Point(14, 164), Size = new Size(552, 28), Font = new Font("Segoe UI", 13, FontStyle.Bold), ForeColor = Red, BackColor = Color.Transparent };
+            priceBox.Controls.Add(lblTotal);
             pnlOrder.Controls.Add(priceBox);
             y += 210;
 
-            // Delivery time info
-            Panel timeInfo = new Panel { Location = new Point(10, y), Size = new Size(900, 40), BackColor = Color.FromArgb(235, 245, 255) };
-            timeInfo.Controls.Add(new Label { Text = "Home Delivery: 2-3 working days  |  Express: Next working day  |  Click and Collect: From your selected date", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(20, 60, 140), Location = new Point(12, 10), Size = new Size(876, 20), BackColor = Color.Transparent });
-            pnlOrder.Controls.Add(timeInfo);
-            y += 50;
-
             // Place order button
-            Button btnPlaceOrder = new Button { Text = "Place Stamp Order ->", Location = new Point(10, y), Size = new Size(280, 52), Font = new Font("Segoe UI", 13, FontStyle.Bold), BackColor = Red, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
-            btnPlaceOrder.FlatAppearance.BorderSize = 0;
-            btnPlaceOrder.MouseEnter += (s, e) => btnPlaceOrder.BackColor = DarkRed;
-            btnPlaceOrder.MouseLeave += (s, e) => btnPlaceOrder.BackColor = Red;
-            btnPlaceOrder.Click += PlaceOrder_Click;
-            pnlOrder.Controls.Add(btnPlaceOrder);
+            Button btnPlace = new Button { Text = "Place Order ->", Location = new Point(10, y), Size = new Size(260, 52), Font = new Font("Segoe UI", 13, FontStyle.Bold), BackColor = Red, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
+            btnPlace.FlatAppearance.BorderSize = 0;
+            btnPlace.MouseEnter += (s, e) => btnPlace.BackColor = DarkRed;
+            btnPlace.MouseLeave += (s, e) => btnPlace.BackColor = Red;
+            btnPlace.Click += PlaceOrder_Click;
+            pnlOrder.Controls.Add(btnPlace);
 
-            UpdatePaymentNote();
+            SelectMethod(true);
+            SelectPayment(true);
             RecalcOrder();
         }
 
-        // Place order button click handler
+        // Select delivery or collect
+        private void SelectMethod(bool delivery)
+        {
+            isDelivery = delivery;
+            pnlDeliveryCard.Controls["bar"].BackColor = delivery ? Red : Color.FromArgb(200, 180, 180);
+            pnlCollectCard.Controls["bar"].BackColor = delivery ? Color.FromArgb(200, 180, 180) : Red;
+            pnlDeliveryDetails.Visible = delivery;
+            pnlCollectDetails.Visible = !delivery;
+
+            // Pay in store only works with collect
+            if (delivery && !payOnline)
+                SelectPayment(true);
+
+            RecalcOrder();
+        }
+
+        // Select payment method
+        private void SelectPayment(bool online)
+        {
+            // Pay in store only allowed with collect
+            if (!online && isDelivery)
+            {
+                MessageBox.Show("Pay In Store is only available with Click and Collect.\nPlease select Click and Collect above first.", "Payment Option", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            payOnline = online;
+            pnlPayOnline.Controls["bar"].BackColor = online ? Red : Color.FromArgb(200, 180, 180);
+            pnlPayStore.Controls["bar"].BackColor = online ? Color.FromArgb(200, 180, 180) : Red;
+
+            // Show pay in store note
+            foreach (Control c in pnlOrder.Controls)
+                if (c.Name == "pnlPayStoreNote") c.Visible = !online;
+
+            RecalcOrder();
+        }
+
+        // Place order
         private void PlaceOrder_Click(object sender, EventArgs e)
         {
-            bool isPickup = cboDeliveryType.SelectedIndex == 2;
-            bool payInStore = cboPayment.SelectedIndex == 1;
-            string email = "";
-
-            if (isPickup)
-            {
-                var tb = pnlPickupSection.Controls["txtPickupEmail"] as TextBox;
-                email = tb?.Text.Trim() ?? "";
-            }
-            else
-            {
-                email = txtOrderEmail?.Text.Trim() ?? "";
-            }
+            string email = isDelivery ? txtDeliveryEmail?.Text.Trim() : txtCollectEmail?.Text.Trim();
+            string payment = payOnline ? "Pay Now Online" : "Pay In Store";
 
             // Validate Gmail
-            if (!email.EndsWith("@gmail.com") || email.Length <= "@gmail.com".Length)
-            {
-                MessageBox.Show("Please enter a valid Gmail address.", "Invalid Email", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+            if (string.IsNullOrEmpty(email) || !email.EndsWith("@gmail.com") || email.Length <= "@gmail.com".Length)
+            { MessageBox.Show("Please enter a valid Gmail address.", "Invalid Email", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
 
-            // Validate name for delivery
-            if (!isPickup && string.IsNullOrWhiteSpace(txtOrderName?.Text))
+            if (isDelivery)
             {
-                MessageBox.Show("Please enter your full name.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Validate address for delivery
-            if (!isPickup && string.IsNullOrWhiteSpace(txtOrderAddress?.Text))
-            {
-                MessageBox.Show("Please enter your delivery address.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                if (string.IsNullOrWhiteSpace(txtDeliveryName?.Text))
+                { MessageBox.Show("Please enter your full name.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                if (string.IsNullOrWhiteSpace(txtDeliveryAddr?.Text))
+                { MessageBox.Show("Please enter your delivery address.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
             }
 
             string orderId = "STO-" + DateTime.Now.ToString("yyyyMMddHHmmss");
             string type = cboStampType.SelectedItem.ToString();
             int qty = Convert.ToInt32(cboQty.SelectedItem);
-            string method = isPickup ? "Click and Collect" : cboDeliveryType.SelectedItem.ToString();
-            string payment = cboPayment.SelectedItem.ToString();
+            string method = isDelivery ? cboDeliverySpeed.SelectedItem.ToString() : "Click and Collect";
+            string location = isDelivery ? "--" : cboPickupLocation.SelectedItem?.ToString() ?? "--";
+            string timeSlot = isDelivery ? "--" : cboPickupTime.SelectedItem?.ToString() ?? "--";
+            string address = isDelivery ? (txtDeliveryAddr?.Text + ", " + txtDeliveryCity?.Text + " " + txtDeliveryPost?.Text) : location;
             double total = CalcTotal();
             string date = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
-            string location = isPickup ? cboPickupLocation.SelectedItem?.ToString() ?? "--" : "--";
-            string timeSlot = isPickup ? cboPickupTime.SelectedItem?.ToString() ?? "--" : "--";
-            string pickupDate = isPickup ? dtPickup.Value.ToString("dd MMMM yyyy") : "--";
 
-            // Create order
             stampOrders.Add(new StampOrder
             {
                 Id = orderId,
                 Type = type,
                 Qty = qty,
                 Method = method,
-                Status = payInStore && isPickup ? "Reserved -- Pay In Store" : "Processing",
+                Status = payOnline ? "Processing" : "Reserved -- Pay In Store",
                 Date = date,
-                PaymentMethod = payment,
+                Payment = payment,
                 Location = location,
                 TimeSlot = timeSlot,
                 Email = email,
+                Address = address,
                 Total = total,
                 Missed = false,
                 RescheduleDate = ""
             });
 
-            // Build confirmation message
-            string msg = "Stamp order placed successfully!\n\n" +
-                         "Order ID: " + orderId + "\n" +
-                         "Stamps: " + qty + "x " + type + "\n" +
-                         "Method: " + method + "\n" +
-                         "Payment: " + (payInStore ? "Pay In Store" : "Paid Online") + "\n" +
-                         "Total: GBP " + total.ToString("0.00");
+            string msg = "Order placed!\n\nOrder ID: " + orderId +
+                         "\nStamps: " + qty + "x " + type +
+                         "\nMethod: " + (isDelivery ? "Delivery" : "Click and Collect") +
+                         "\nPayment: " + payment +
+                         "\nTotal: GBP " + total.ToString("0.00");
 
-            if (isPickup)
-            {
-                msg += "\n\nPickup Details:\n" +
-                       "Location: " + location + "\n" +
-                       "Date: " + pickupDate + "\n" +
-                       "Time Slot: " + timeSlot;
-
-                if (payInStore)
-                    msg += "\n\nIMPORTANT: Bring your Order ID (" + orderId + ") to the store.\nPay by cash or card at the counter.\nIf you miss your slot your order is held for 48 hours then rescheduled.";
-            }
+            if (isDelivery)
+                msg += "\nDelivery to: " + address;
             else
             {
-                msg += "\n\nDelivery to: " + txtOrderAddress.Text;
+                msg += "\nLocation: " + location +
+                       "\nDate: " + dtPickup.Value.ToString("dd MMM yyyy") +
+                       "\nTime: " + timeSlot;
+                if (!payOnline)
+                    msg += "\n\nBring Order ID to store and pay by cash or card.\nHeld for 48 hours if missed.";
             }
 
-            msg += "\n\nConfirmation sent to: " + email;
-
+            msg += "\nConfirmation sent to: " + email;
             MessageBox.Show(msg, "Order Confirmed", MessageBoxButtons.OK, MessageBoxIcon.Information);
             SwTab("orders");
+        }
+
+        // Recalculate price breakdown
+        private void RecalcOrder()
+        {
+            try
+            {
+                string stampType = cboStampType?.SelectedItem?.ToString() ?? "";
+                int qty = cboQty?.SelectedItem != null ? Convert.ToInt32(cboQty.SelectedItem) : 1;
+                if (!stampPrices.ContainsKey(stampType)) return;
+
+                double unitPrice = stampPrices[stampType];
+                double stampTotal = unitPrice * qty;
+                double delivery = isDelivery
+                    ? (cboDeliverySpeed?.SelectedIndex == 1 ? 3.99 : 1.50)
+                    : 0.00;
+                double subtotal = stampTotal + delivery;
+                double tax = Math.Round(subtotal * 0.20, 2);
+                double service = Math.Round(subtotal * 0.02, 2);
+                double total = Math.Round(subtotal + tax + service, 2);
+
+                string methodStr = isDelivery
+                    ? (cboDeliverySpeed?.SelectedIndex == 1 ? "Express Delivery" : "Standard Delivery")
+                    : "Click and Collect (Free)";
+                string payStr = payOnline ? "Pay Now Online" : "Pay In Store on Collection";
+
+                if (lblBreakdown != null)
+                    lblBreakdown.Text =
+                        qty + "x " + stampType + "  --  GBP " + unitPrice.ToString("0.00") + " each\n" +
+                        "Stamps subtotal:       GBP " + stampTotal.ToString("0.00") + "\n" +
+                        methodStr + ":    GBP " + delivery.ToString("0.00") + "\n" +
+                        "VAT (20%):             GBP " + tax.ToString("0.00") + "\n" +
+                        "Service fee (2%):      GBP " + service.ToString("0.00") + "\n" +
+                        "Payment:               " + payStr;
+
+                if (lblTotal != null)
+                    lblTotal.Text = "Total:  GBP " + total.ToString("0.00") +
+                                    (payOnline ? "" : "  (pay on collection)");
+            }
+            catch { }
+        }
+
+        private double CalcTotal()
+        {
+            try
+            {
+                string stampType = cboStampType?.SelectedItem?.ToString() ?? "";
+                int qty = Convert.ToInt32(cboQty?.SelectedItem ?? 1);
+                double unitPrice = stampPrices.ContainsKey(stampType) ? stampPrices[stampType] : 0;
+                double stampTotal = unitPrice * qty;
+                double delivery = isDelivery ? (cboDeliverySpeed?.SelectedIndex == 1 ? 3.99 : 1.50) : 0.00;
+                double subtotal = stampTotal + delivery;
+                double tax = Math.Round(subtotal * 0.20, 2);
+                double service = Math.Round(subtotal * 0.02, 2);
+                return Math.Round(subtotal + tax + service, 2);
+            }
+            catch { return 0; }
         }
 
         // ============================================================
@@ -479,9 +545,8 @@ namespace PostalServiceWinForms.Forms
         private void BuildMyOrders()
         {
             pnlMyOrders.Controls.Clear();
-
             pnlMyOrders.Controls.Add(new Label { Text = "My Stamp Orders", Font = new Font("Segoe UI", 16, FontStyle.Bold), ForeColor = Red, Location = new Point(10, 16), Size = new Size(400, 34) });
-            pnlMyOrders.Controls.Add(new Label { Text = "All your stamp orders and their current status.", Font = new Font("Segoe UI", 10), ForeColor = Grey, Location = new Point(10, 52), Size = new Size(800, 22) });
+            pnlMyOrders.Controls.Add(new Label { Text = "All your stamp orders and their current delivery or collection status.", Font = new Font("Segoe UI", 10), ForeColor = Grey, Location = new Point(10, 52), Size = new Size(800, 22) });
 
             if (stampOrders.Count == 0)
             {
@@ -494,156 +559,57 @@ namespace PostalServiceWinForms.Forms
             int y = 90;
             foreach (var order in stampOrders)
             {
-                // Check missed pickup logic
-                string displayStatus = order.Status;
-                string missedNote = "";
-
-                if (order.Method == "Click and Collect" && !order.Missed)
+                // Missed pickup logic
+                if (!order.Missed && order.Method == "Click and Collect" && order.Status == "Reserved -- Pay In Store")
                 {
-                    // Simulate: if pickup date has passed mark as missed and reschedule
-                    DateTime pickupDt;
-                    if (DateTime.TryParse(order.Date, out DateTime orderDt))
+                    if (DateTime.TryParse(order.Date, out DateTime orderDt) && orderDt.AddDays(2) < DateTime.Now)
                     {
-                        // For demo purposes if order placed more than 2 days ago and not collected
-                        if (orderDt.AddDays(2) < DateTime.Now && order.Status == "Processing")
-                        {
-                            order.Missed = true;
-                            order.Status = "Missed -- Rescheduled";
-                            order.RescheduleDate = DateTime.Now.AddDays(2).ToString("dd MMM yyyy");
-                            displayStatus = "Missed -- Rescheduled";
-                            missedNote = "New pickup: " + order.RescheduleDate + " same time slot";
-                        }
+                        order.Missed = true;
+                        order.Status = "Missed -- Rescheduled";
+                        order.RescheduleDate = DateTime.Now.AddDays(2).ToString("dd MMM yyyy");
                     }
                 }
 
-                Color statusColor = displayStatus.Contains("Delivered") || displayStatus.Contains("Collected") ? Green :
-                                    displayStatus.Contains("Missed") ? Color.FromArgb(160, 30, 30) :
-                                    displayStatus.Contains("Reserved") ? Orange :
-                                    displayStatus.Contains("Processing") ? Orange : Grey;
+                Color sc = order.Status.Contains("Delivered") || order.Status.Contains("Collected") ? Green :
+                           order.Status.Contains("Missed") ? Color.FromArgb(160, 30, 30) :
+                           order.Status.Contains("Reserved") ? Orange : Orange;
 
-                Panel card = new Panel { Location = new Point(10, y), Size = new Size(1200, 110), BackColor = Color.White };
-                card.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(1200, 5), BackColor = statusColor });
+                bool hasMissed = order.Missed;
+                int cardH = hasMissed ? 130 : 110;
 
-                card.Controls.Add(new Label { Text = order.Id, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Red, Location = new Point(14, 12), Size = new Size(220, 20) });
-                card.Controls.Add(new Label { Text = order.Qty + "x " + order.Type, Font = new Font("Segoe UI", 10), ForeColor = Dark, Location = new Point(240, 12), Size = new Size(360, 20) });
-                card.Controls.Add(new Label { Text = "GBP " + order.Total.ToString("0.00"), Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Dark, Location = new Point(610, 12), Size = new Size(140, 20) });
-                card.Controls.Add(new Label { Text = displayStatus, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = statusColor, Location = new Point(760, 12), Size = new Size(300, 20) });
-                card.Controls.Add(new Label { Text = "Ordered: " + order.Date, Font = new Font("Segoe UI", 9), ForeColor = Grey, Location = new Point(14, 40), Size = new Size(300, 18) });
-                card.Controls.Add(new Label { Text = "Method: " + order.Method + "  |  Payment: " + (order.PaymentMethod.Contains("Store") ? "Pay In Store" : "Paid Online"), Font = new Font("Segoe UI", 9), ForeColor = Grey, Location = new Point(14, 60), Size = new Size(600, 18) });
+                Panel card = new Panel { Location = new Point(10, y), Size = new Size(1200, cardH), BackColor = Color.White };
+                card.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(1200, 5), BackColor = sc });
 
-                // Show pickup details if applicable
+                card.Controls.Add(new Label { Text = order.Id, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Red, Location = new Point(14, 12), Size = new Size(230, 20) });
+                card.Controls.Add(new Label { Text = order.Qty + "x " + order.Type, Font = new Font("Segoe UI", 10), ForeColor = Dark, Location = new Point(250, 12), Size = new Size(360, 20) });
+                card.Controls.Add(new Label { Text = "GBP " + order.Total.ToString("0.00"), Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Dark, Location = new Point(620, 12), Size = new Size(140, 20) });
+                card.Controls.Add(new Label { Text = order.Status, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = sc, Location = new Point(770, 12), Size = new Size(380, 20) });
+                card.Controls.Add(new Label { Text = "Ordered: " + order.Date + "  |  Payment: " + order.Payment, Font = new Font("Segoe UI", 9), ForeColor = Grey, Location = new Point(14, 40), Size = new Size(700, 18) });
+                card.Controls.Add(new Label { Text = "Method: " + order.Method, Font = new Font("Segoe UI", 9), ForeColor = Grey, Location = new Point(14, 60), Size = new Size(500, 18) });
+
                 if (order.Method == "Click and Collect")
                 {
                     card.Controls.Add(new Label { Text = "Location: " + order.Location, Font = new Font("Segoe UI", 9), ForeColor = Grey, Location = new Point(14, 80), Size = new Size(700, 18) });
-                    card.Controls.Add(new Label { Text = "Time Slot: " + order.TimeSlot, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Green, Location = new Point(730, 80), Size = new Size(300, 18) });
+                    card.Controls.Add(new Label { Text = "Time: " + order.TimeSlot, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Green, Location = new Point(730, 80), Size = new Size(300, 18) });
                 }
-
-                // Show missed and rescheduled info
-                if (!string.IsNullOrEmpty(missedNote))
+                else
                 {
-                    Panel missedBanner = new Panel { Location = new Point(0, 92), Size = new Size(1200, 24), BackColor = Color.FromArgb(255, 230, 230) };
-                    missedBanner.Controls.Add(new Label { Text = "You missed your pickup slot. " + missedNote + ". Please contact us if you need to change this.", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(160, 30, 30), Location = new Point(10, 4), Size = new Size(1180, 16), BackColor = Color.Transparent });
-                    card.Controls.Add(missedBanner);
-                    card.Size = new Size(1200, 116);
+                    string expected = order.Method.Contains("Express") ? DateTime.Now.AddDays(1).ToString("dd MMM yyyy") : DateTime.Now.AddDays(3).ToString("dd MMM yyyy");
+                    card.Controls.Add(new Label { Text = "Expected delivery: " + expected, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Green, Location = new Point(530, 80), Size = new Size(400, 18) });
                 }
 
-                // Show expected delivery date
-                string expected = order.Method.Contains("Express") ? DateTime.Now.AddDays(1).ToString("dd MMM yyyy") :
-                                  order.Method.Contains("Collect") ? "See pickup details" :
-                                  DateTime.Now.AddDays(3).ToString("dd MMM yyyy");
-                card.Controls.Add(new Label { Text = "Expected: " + expected, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Green, Location = new Point(850, 40), Size = new Size(300, 18) });
+                if (hasMissed)
+                {
+                    Panel missedBanner = new Panel { Location = new Point(0, 96), Size = new Size(1200, 28), BackColor = Color.FromArgb(255, 230, 230) };
+                    missedBanner.Controls.Add(new Label { Text = "You missed your collection slot. Your order has been rescheduled to " + order.RescheduleDate + " at the same location and time.", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(160, 30, 30), Location = new Point(10, 6), Size = new Size(1180, 16), BackColor = Color.Transparent });
+                    card.Controls.Add(missedBanner);
+                }
 
                 pnlMyOrders.Controls.Add(card);
-                y += card.Height + 10;
+                y += cardH + 10;
             }
         }
 
-        // Recalculate order total with tax and service fee
-        private void RecalcOrder()
-        {
-            try
-            {
-                string stampType = cboStampType?.SelectedItem?.ToString() ?? "";
-                int qty = cboQty?.SelectedItem != null ? Convert.ToInt32(cboQty.SelectedItem) : 1;
-                int delType = cboDeliveryType?.SelectedIndex ?? 0;
-                bool payStore = cboPayment?.SelectedIndex == 1;
-
-                if (!stampPrices.ContainsKey(stampType)) return;
-
-                double unitPrice = stampPrices[stampType];
-                double stampTotal = unitPrice * qty;
-                double delivery = delType == 0 ? 1.50 : delType == 1 ? 3.99 : 0.00;
-                double subtotal = stampTotal + delivery;
-                double tax = Math.Round(subtotal * 0.20, 2);
-                double serviceFee = Math.Round(subtotal * 0.02, 2);
-                double total = Math.Round(subtotal + tax + serviceFee, 2);
-
-                string methodStr = delType == 0 ? "Home Delivery" : delType == 1 ? "Express Delivery" : "Click and Collect (Free)";
-                string payStr = payStore ? "Pay In Store (reserve now, pay on collection)" : "Pay Now Online";
-
-                if (lblOrderBreakdown != null)
-                    lblOrderBreakdown.Text =
-                        qty + "x " + stampType + "  --  GBP " + unitPrice.ToString("0.00") + " each\n" +
-                        "Stamps subtotal:         GBP " + stampTotal.ToString("0.00") + "\n" +
-                        methodStr + ":  GBP " + delivery.ToString("0.00") + "\n" +
-                        "VAT (20%):               GBP " + tax.ToString("0.00") + "\n" +
-                        "Service fee (2%):        GBP " + serviceFee.ToString("0.00") + "\n" +
-                        "Payment method:          " + payStr;
-
-                if (lblOrderTotal != null)
-                    lblOrderTotal.Text = "Total:  GBP " + total.ToString("0.00") +
-                                         (payStore ? "  (pay on collection)" : "  (pay now online)");
-            }
-            catch { }
-        }
-
-        // Update payment note based on selections
-        private void UpdatePaymentNote()
-        {
-            if (lblPaymentNote == null || cboPayment == null) return;
-            bool isPickup = cboDeliveryType?.SelectedIndex == 2;
-            bool payStore = cboPayment.SelectedIndex == 1;
-
-            if (payStore && !isPickup)
-            {
-                // Pay in store only available for pickup
-                lblPaymentNote.Text = "Pay In Store is only available with Click and Collect. Please select Click and Collect above or choose Pay Now.";
-                pnlPaymentSection.BackColor = Color.FromArgb(255, 235, 235);
-                lblPaymentNote.ForeColor = Color.FromArgb(160, 30, 30);
-            }
-            else if (payStore && isPickup)
-            {
-                lblPaymentNote.Text = "You will reserve your stamps now and pay by cash or card when you collect at the store. Your slot is held for 48 hours.";
-                pnlPaymentSection.BackColor = Color.FromArgb(230, 255, 240);
-                lblPaymentNote.ForeColor = Color.FromArgb(10, 100, 40);
-            }
-            else
-            {
-                lblPaymentNote.Text = "Your card will be charged immediately when you place the order. A confirmation email will be sent to your Gmail address.";
-                pnlPaymentSection.BackColor = Color.FromArgb(230, 255, 240);
-                lblPaymentNote.ForeColor = Color.FromArgb(10, 100, 40);
-            }
-        }
-
-        private double CalcTotal()
-        {
-            try
-            {
-                string stampType = cboStampType?.SelectedItem?.ToString() ?? "";
-                int qty = Convert.ToInt32(cboQty?.SelectedItem ?? 1);
-                int delType = cboDeliveryType?.SelectedIndex ?? 0;
-                double unitPrice = stampPrices.ContainsKey(stampType) ? stampPrices[stampType] : 0;
-                double stampTotal = unitPrice * qty;
-                double delivery = delType == 0 ? 1.50 : delType == 1 ? 3.99 : 0.00;
-                double subtotal = stampTotal + delivery;
-                double tax = Math.Round(subtotal * 0.20, 2);
-                double serviceFee = Math.Round(subtotal * 0.02, 2);
-                return Math.Round(subtotal + tax + serviceFee, 2);
-            }
-            catch { return 0; }
-        }
-
-        // Switch between tabs
         private void SwTab(string which)
         {
             pnlBrowse.Visible = which == "browse";
