@@ -14,7 +14,8 @@ namespace PostalServiceWinForms
 {
     public class RegisterForm : Form
     {
-        private TextBox txtName, txtPhone, txtEmail, txtAddress, txtPostCode, txtCity, txtPass, txtConfirm;
+        private TextBox txtName, txtPhone, txtEmail, txtAddress, txtPostCode, txtPass, txtConfirm;
+        private ComboBox cboCity;
         private DatabaseHelper db;
         private Color Red = Color.FromArgb(180, 30, 30);
         private Color DarkRed = Color.FromArgb(140, 20, 20);
@@ -84,10 +85,16 @@ namespace PostalServiceWinForms
             AL(right, "HOME ADDRESS", 70, y); y += 18;
             txtAddress = ATB(right, "123 Main Street, London", 70, y, 560); y += 50;
 
-            // Postcode and City
-            AL(right, "POSTCODE", 70, y); AL(right, "YOUR CITY", 290, y); y += 18;
+            // Postcode and City -- labels first then inputs
+            AL(right, "POSTCODE", 70, y);
+            right.Controls.Add(new Label { Text = "LOCATION", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(100, 100, 100), Location = new Point(290, y), Size = new Size(280, 16) });
+            y += 18;
             txtPostCode = ATB(right, "N1 2AB", 70, y, 200);
-            txtCity = ATB(right, "London", 290, y, 200); y += 50;
+            cboCity = new ComboBox { Location = new Point(290, y), Size = new Size(280, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
+            cboCity.Items.AddRange(new object[] { "London", "Manchester", "Birmingham", "Leeds", "Bristol", "Edinburgh", "Glasgow" });
+            cboCity.SelectedIndex = 0;
+            right.Controls.Add(cboCity);
+            y += 50;
 
             // Password and Confirm
             AL(right, "PASSWORD", 70, y); AL(right, "CONFIRM PASSWORD", 350, y); y += 18;
@@ -119,7 +126,7 @@ namespace PostalServiceWinForms
         }
 
         private void AL(Panel p, string t, int x, int y) =>
-            p.Controls.Add(new Label { Text = t, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(100, 100, 100), Location = new Point(x, y), Size = new Size(270, 16) });
+            p.Controls.Add(new Label { Text = t, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(100, 100, 100), Location = new Point(x, y), Size = new Size(280, 16), AutoSize = false });
 
         private TextBox ATB(Panel p, string ph, int x, int y, int w, bool pwd = false)
         {
@@ -161,7 +168,7 @@ namespace PostalServiceWinForms
             // Register user
             string uid = "USER-" + (db.GetUserCount() + 1).ToString("D3");
             string res = db.RegisterUser(uid, txtName.Text.Trim(), txtEmail.Text.Trim(),
-                txtPhone.Text.Trim(), txtAddress.Text.Trim(), txtPostCode.Text.Trim(), "Customer", txtPass.Text, txtCity.Text.Trim());
+                txtPhone.Text.Trim(), txtAddress.Text.Trim(), txtPostCode.Text.Trim(), "Customer", txtPass.Text, cboCity.SelectedItem?.ToString() ?? "London");
 
             MessageBox.Show(res, "Registration", MessageBoxButtons.OK, MessageBoxIcon.Information);
             if (res.Contains("successfully")) this.Close();

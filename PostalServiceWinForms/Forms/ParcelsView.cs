@@ -783,18 +783,10 @@ namespace PostalServiceWinForms.Forms
 
                 // Show confirmation message
                 MessageBox.Show(
-                    "Your refund request has been submitted successfully!
-
-" +
-                    "Tracking ID: " + trackId + "
-" +
-                    "Reason: " + cboRefundReason.SelectedItem.ToString() + "
-
-" +
-                    "We will review your request and contact you at:
-" + email + "
-
-" +
+                    "Your refund request has been submitted successfully!\n\n" +
+                    "Tracking ID: " + trackId + "\n" +
+                    "Reason: " + cboRefundReason.SelectedItem.ToString() + "\n\n" +
+                    "We will review your request and contact you at:\n" + email + "\n\n" +
                     "Please expect a response within 2-3 working days.",
                     "Refund Request Submitted",
                     MessageBoxButtons.OK,
