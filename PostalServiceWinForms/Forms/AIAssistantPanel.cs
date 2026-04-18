@@ -177,7 +177,7 @@ namespace PostalServiceWinForms.Forms
             bubble.Controls.Add(lbl);
             lbl.Location = new Point(12, 10);
             lbl.CreateControl();
-            bubble.Size = new Size(Math.Min(lbl.Width + 28, maxW), lbl.Height + 22);
+            bubble.Size = new Size(Math.Min(lbl.Width + 28, maxW), lbl.Height + 32);
             bubble.Location = new Point(isUser ? pnlMessages.Width - bubble.Width - 14 : 12, _msgY);
 
             pnlMessages.Controls.AddRange(new Control[] { roleLbl, bubble });

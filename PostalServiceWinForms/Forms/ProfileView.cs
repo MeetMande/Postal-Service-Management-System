@@ -52,7 +52,7 @@ namespace PostalServiceWinForms.Forms
                 Text = "My Profile",
                 Font = new Font("Segoe UI", 22, FontStyle.Bold),
                 ForeColor = Red,
-                Location = new Point(20, 10),
+                Location = new Point(20, 30),
                 Size = new Size(300, 40)
             });
             this.Controls.Add(new Label
@@ -60,7 +60,7 @@ namespace PostalServiceWinForms.Forms
                 Text = "Your personal account details",
                 Font = new Font("Segoe UI", 11),
                 ForeColor = Color.Gray,
-                Location = new Point(20, 52),
+                Location = new Point(20, 74),
                 Size = new Size(500, 24)
             });
 
@@ -69,7 +69,7 @@ namespace PostalServiceWinForms.Forms
             {
                 BackColor = Color.White,
                 Size = new Size(860, 620),
-                Location = new Point(20, 90)
+                Location = new Point(20, 114)
             };
             pnlCard.Controls.Add(new Panel
             {

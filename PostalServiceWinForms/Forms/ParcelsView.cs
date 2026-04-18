@@ -41,8 +41,8 @@ namespace PostalServiceWinForms.Forms
         private int pkgSvcIndex = 0;
 
         // Main panels
-        private Panel pnlList, pnlSend;
-        private Button btnList, btnSend;
+        private Panel pnlList, pnlSend, pnlRefund;
+        private Button btnList, btnSend, btnRefund;
 
         private DatabaseHelper db;
         private string userID, userName;
@@ -132,6 +132,23 @@ namespace PostalServiceWinForms.Forms
             btnSend.Click += (s, e) => Switch("send");
             topBar.Controls.Add(btnSend);
 
+            // Refund Request tab button
+            btnRefund = new Button
+            {
+                Text = "Refund Request",
+                Location = new Point(498, 60),
+                Size = new Size(180, 38),
+                Font = new Font("Segoe UI", 10),
+                BackColor = Color.FromArgb(240, 240, 240),
+                ForeColor = Red,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            btnRefund.FlatAppearance.BorderColor = Color.FromArgb(210, 190, 190);
+            btnRefund.FlatAppearance.BorderSize = 1;
+            btnRefund.Click += (s, e) => Switch("refund");
+            topBar.Controls.Add(btnRefund);
+
             // My Parcels panel
             pnlList = new Panel { Dock = DockStyle.Fill, BackColor = Bg, Visible = true };
             this.Controls.Add(pnlList);
@@ -142,6 +159,11 @@ namespace PostalServiceWinForms.Forms
             this.Controls.Add(pnlSend);
             BuildSendForm();
 
+            // Refund panel
+            pnlRefund = new Panel { Dock = DockStyle.Fill, BackColor = Bg, AutoScroll = true, Visible = false };
+            this.Controls.Add(pnlRefund);
+            BuildRefundForm();
+
             RefreshParcels();
         }
 
@@ -150,14 +172,18 @@ namespace PostalServiceWinForms.Forms
         {
             pnlList.Visible = which == "list";
             pnlSend.Visible = which == "send";
+            pnlRefund.Visible = which == "refund";
 
             if (which == "list") pnlList.BringToFront();
             if (which == "send") pnlSend.BringToFront();
+            if (which == "refund") pnlRefund.BringToFront();
 
             btnList.BackColor = which == "list" ? Red : Color.FromArgb(240, 240, 240);
             btnList.ForeColor = which == "list" ? Color.White : Red;
             btnSend.BackColor = which == "send" ? Red : Color.FromArgb(240, 240, 240);
             btnSend.ForeColor = which == "send" ? Color.White : Red;
+            btnRefund.BackColor = which == "refund" ? Red : Color.FromArgb(240, 240, 240);
+            btnRefund.ForeColor = which == "refund" ? Color.White : Red;
 
             if (which == "list") RefreshParcels();
             if (which == "send") RefreshTrackID();
@@ -632,6 +658,157 @@ namespace PostalServiceWinForms.Forms
             pnlSend.Controls.Add(btnSubmit);
 
             Recalc();
+        }
+
+        // ============================================================
+        // REFUND FORM
+        // ============================================================
+        private void BuildRefundForm()
+        {
+            int y = 20;
+
+            // Page header
+            pnlRefund.Controls.Add(new Label { Text = "Refund Request", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = Red, Location = new Point(20, y), Size = new Size(500, 36) });
+            y += 44;
+            pnlRefund.Controls.Add(new Label { Text = "Please fill in your tracking ID and describe what happened. We will review your request and contact you within 2-3 working days.", Font = new Font("Segoe UI", 10), ForeColor = Color.Gray, Location = new Point(20, y), Size = new Size(860, 40) });
+            y += 54;
+
+            // White card
+            Panel card = new Panel { Location = new Point(20, y), Size = new Size(900, 460), BackColor = Color.White };
+            card.Controls.Add(new Panel { Location = new Point(0, 0), Size = new Size(900, 5), BackColor = Red });
+            pnlRefund.Controls.Add(card);
+
+            int cy = 20;
+
+            // Tracking ID field
+            card.Controls.Add(new Label { Text = "TRACKING ID", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(20, cy), Size = new Size(300, 16) });
+            cy += 18;
+            var txtRefundTrack = new TextBox { Location = new Point(20, cy), Size = new Size(400, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            txtRefundTrack.Text = "e.g. PS-2026-00001";
+            txtRefundTrack.ForeColor = Color.LightGray;
+            txtRefundTrack.Enter += (s, e) => { if (txtRefundTrack.ForeColor == Color.LightGray) { txtRefundTrack.Text = ""; txtRefundTrack.ForeColor = Color.Black; } };
+            txtRefundTrack.Leave += (s, e) => { if (txtRefundTrack.Text == "") { txtRefundTrack.Text = "e.g. PS-2026-00001"; txtRefundTrack.ForeColor = Color.LightGray; } };
+            card.Controls.Add(txtRefundTrack);
+            cy += 50;
+
+            // Reason dropdown
+            card.Controls.Add(new Label { Text = "REASON FOR REFUND", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(20, cy), Size = new Size(300, 16) });
+            cy += 18;
+            var cboRefundReason = new ComboBox { Location = new Point(20, cy), Size = new Size(400, 34), Font = new Font("Segoe UI", 11), DropDownStyle = ComboBoxStyle.DropDownList };
+            cboRefundReason.Items.AddRange(new object[] {
+                "Parcel not delivered",
+                "Parcel arrived damaged",
+                "Wrong item delivered",
+                "Parcel lost in transit",
+                "Delivery significantly delayed",
+                "Parcel delivered to wrong address",
+                "Other"
+            });
+            cboRefundReason.SelectedIndex = 0;
+            card.Controls.Add(cboRefundReason);
+            cy += 50;
+
+            // What happened text area
+            card.Controls.Add(new Label { Text = "DESCRIBE WHAT HAPPENED", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(20, cy), Size = new Size(500, 16) });
+            cy += 18;
+            var txtRefundNote = new TextBox
+            {
+                Location = new Point(20, cy),
+                Size = new Size(860, 100),
+                Font = new Font("Segoe UI", 11),
+                BorderStyle = BorderStyle.FixedSingle,
+                Multiline = true,
+                ScrollBars = ScrollBars.Vertical,
+                Text = "Please describe what happened with your parcel in as much detail as possible...",
+                ForeColor = Color.LightGray
+            };
+            txtRefundNote.Enter += (s, e) => { if (txtRefundNote.ForeColor == Color.LightGray) { txtRefundNote.Text = ""; txtRefundNote.ForeColor = Color.Black; } };
+            txtRefundNote.Leave += (s, e) => { if (txtRefundNote.Text == "") { txtRefundNote.Text = "Please describe what happened with your parcel in as much detail as possible..."; txtRefundNote.ForeColor = Color.LightGray; } };
+            card.Controls.Add(txtRefundNote);
+            cy += 116;
+
+            // Email for contact
+            card.Controls.Add(new Label { Text = "YOUR EMAIL (must be @gmail.com) -- we will contact you here", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(20, cy), Size = new Size(700, 16) });
+            cy += 18;
+            var txtRefundEmail = new TextBox { Location = new Point(20, cy), Size = new Size(500, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+            card.Controls.Add(txtRefundEmail);
+            cy += 50;
+
+            // Info note
+            Panel infoNote = new Panel { Location = new Point(20, cy), Size = new Size(860, 46), BackColor = Color.FromArgb(235, 245, 255) };
+            infoNote.Controls.Add(new Label { Text = "Refund requests are reviewed within 2-3 working days. Approved refunds are processed within 5-7 working days back to your original payment method.", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(20, 60, 140), Location = new Point(12, 14), Size = new Size(836, 18), BackColor = Color.Transparent });
+            card.Controls.Add(infoNote);
+            cy += 60;
+
+            // Submit button
+            Button btnSubmitRefund = new Button
+            {
+                Text = "Submit Refund Request ->",
+                Location = new Point(20, cy),
+                Size = new Size(280, 50),
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                BackColor = Red,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            btnSubmitRefund.FlatAppearance.BorderSize = 0;
+            btnSubmitRefund.MouseEnter += (s, e) => btnSubmitRefund.BackColor = DarkRed;
+            btnSubmitRefund.MouseLeave += (s, e) => btnSubmitRefund.BackColor = Red;
+            btnSubmitRefund.Click += (s, e) =>
+            {
+                // Validate tracking ID
+                string trackId = txtRefundTrack.ForeColor == Color.LightGray ? "" : txtRefundTrack.Text.Trim();
+                if (string.IsNullOrEmpty(trackId))
+                {
+                    MessageBox.Show("Please enter your tracking ID.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Validate note
+                string note = txtRefundNote.ForeColor == Color.LightGray ? "" : txtRefundNote.Text.Trim();
+                if (string.IsNullOrEmpty(note))
+                {
+                    MessageBox.Show("Please describe what happened with your parcel.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Validate email
+                string email = txtRefundEmail.Text.Trim();
+                if (!email.EndsWith("@gmail.com") || email.Length <= "@gmail.com".Length)
+                {
+                    MessageBox.Show("Please enter a valid Gmail address so we can contact you.", "Invalid Email", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Show confirmation message
+                MessageBox.Show(
+                    "Your refund request has been submitted successfully!
+
+" +
+                    "Tracking ID: " + trackId + "
+" +
+                    "Reason: " + cboRefundReason.SelectedItem.ToString() + "
+
+" +
+                    "We will review your request and contact you at:
+" + email + "
+
+" +
+                    "Please expect a response within 2-3 working days.",
+                    "Refund Request Submitted",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+
+                // Reset the form
+                txtRefundTrack.Text = "e.g. PS-2026-00001";
+                txtRefundTrack.ForeColor = Color.LightGray;
+                txtRefundNote.Text = "Please describe what happened with your parcel in as much detail as possible...";
+                txtRefundNote.ForeColor = Color.LightGray;
+                txtRefundEmail.Text = "";
+                cboRefundReason.SelectedIndex = 0;
+            };
+            card.Controls.Add(btnSubmitRefund);
         }
 
         // Section heading helper for send form

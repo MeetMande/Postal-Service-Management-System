@@ -437,6 +437,13 @@ namespace PostalServiceWinForms.Forms
             string email = isDelivery ? txtDeliveryEmail?.Text.Trim() : txtCollectEmail?.Text.Trim();
             string payment = payOnline ? "Pay Now Online" : "Pay In Store";
 
+            // If paying online show bank details form first
+            if (payOnline)
+            {
+                bool paid = ShowBankDetailsForm();
+                if (!paid) return; // User cancelled payment
+            }
+
             // Validate Gmail
             if (string.IsNullOrEmpty(email) || !email.EndsWith("@gmail.com") || email.Length <= "@gmail.com".Length)
             { MessageBox.Show("Please enter a valid Gmail address.", "Invalid Email", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
@@ -537,6 +544,104 @@ namespace PostalServiceWinForms.Forms
                                     (payOnline ? "" : "  (pay on collection)");
             }
             catch { }
+        }
+
+        // Bank details form shown when user selects Pay Now Online
+        private bool ShowBankDetailsForm()
+        {
+            Form bankForm = new Form
+            {
+                Text = "PostalMS -- Secure Payment",
+                Size = new Size(480, 520),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterParent,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                BackColor = Color.FromArgb(245, 245, 245)
+            };
+
+            Color BankRed = Color.FromArgb(180, 30, 30);
+
+            // Header
+            Panel hdr = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = BankRed };
+            hdr.Controls.Add(new Label { Text = "Secure Payment", Font = new Font("Segoe UI", 14, FontStyle.Bold), ForeColor = Color.White, Location = new Point(16, 14), Size = new Size(300, 28), BackColor = Color.Transparent });
+            hdr.Controls.Add(new Label { Text = "Your card details are encrypted and secure", Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(255, 200, 200), Location = new Point(16, 38), Size = new Size(400, 18), BackColor = Color.Transparent });
+            bankForm.Controls.Add(hdr);
+
+            Panel card = new Panel { Location = new Point(20, 76), Size = new Size(432, 340), BackColor = Color.White };
+            bankForm.Controls.Add(card);
+
+            int cy = 16;
+            void addLbl(string t, int y) { card.Controls.Add(new Label { Text = t, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(16, y), Size = new Size(400, 16) }); }
+            TextBox addTxt(int y, int w, string ph = "")
+            {
+                var tb = new TextBox { Location = new Point(16, y), Size = new Size(w, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle };
+                if (!string.IsNullOrEmpty(ph)) { tb.Text = ph; tb.ForeColor = Color.LightGray; tb.Enter += (s, e2) => { if (tb.ForeColor == Color.LightGray) { tb.Text = ""; tb.ForeColor = Color.Black; } }; }
+                card.Controls.Add(tb);
+                return tb;
+            }
+
+            // Cardholder name
+            addLbl("CARDHOLDER NAME", cy); cy += 18;
+            var txtCardName = addTxt(cy, 400, "Full name as it appears on card"); cy += 50;
+
+            // Card number
+            addLbl("CARD NUMBER", cy); cy += 18;
+            var txtCardNum = addTxt(cy, 400, "1234 5678 9012 3456"); cy += 50;
+
+            // Expiry and CVV side by side
+            addLbl("EXPIRY DATE", cy);
+            card.Controls.Add(new Label { Text = "CVV", Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, Location = new Point(220, cy), Size = new Size(200, 16) });
+            cy += 18;
+            var txtExpiry = new TextBox { Location = new Point(16, cy), Size = new Size(190, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle, Text = "MM/YY", ForeColor = Color.LightGray };
+            txtExpiry.Enter += (s, e2) => { if (txtExpiry.ForeColor == Color.LightGray) { txtExpiry.Text = ""; txtExpiry.ForeColor = Color.Black; } };
+            var txtCVV = new TextBox { Location = new Point(220, cy), Size = new Size(190, 34), Font = new Font("Segoe UI", 11), BorderStyle = BorderStyle.FixedSingle, Text = "CVV", ForeColor = Color.LightGray, PasswordChar = '*' };
+            txtCVV.Enter += (s, e2) => { if (txtCVV.ForeColor == Color.LightGray) { txtCVV.Text = ""; txtCVV.ForeColor = Color.Black; } };
+            card.Controls.Add(txtExpiry);
+            card.Controls.Add(txtCVV);
+            cy += 50;
+
+            // Billing postcode
+            addLbl("BILLING POSTCODE", cy); cy += 18;
+            var txtPostcode = addTxt(cy, 200, "e.g. NW4 4BT"); cy += 50;
+
+            // Security note
+            Panel secNote = new Panel { Location = new Point(16, cy), Size = new Size(400, 36), BackColor = Color.FromArgb(235, 245, 255) };
+            secNote.Controls.Add(new Label { Text = "This is a secure encrypted payment. We do not store your card details.", Font = new Font("Segoe UI", 8), ForeColor = Color.FromArgb(20, 60, 140), Location = new Point(10, 10), Size = new Size(380, 16), BackColor = Color.Transparent });
+            card.Controls.Add(secNote);
+
+            // Pay Now button
+            bool paid = false;
+            Button btnPay = new Button { Text = "Pay Now  GBP " + CalcTotal().ToString("0.00"), Location = new Point(20, 430), Size = new Size(432, 50), Font = new Font("Segoe UI", 12, FontStyle.Bold), BackColor = BankRed, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            btnPay.FlatAppearance.BorderSize = 0;
+            btnPay.Click += (s, e2) =>
+            {
+                // Validate card details
+                string name = txtCardName.ForeColor == Color.LightGray ? "" : txtCardName.Text.Trim();
+                string cardNum = txtCardNum.ForeColor == Color.LightGray ? "" : txtCardNum.Text.Trim();
+                string expiry = txtExpiry.ForeColor == Color.LightGray ? "" : txtExpiry.Text.Trim();
+                string cvv = txtCVV.ForeColor == Color.LightGray ? "" : txtCVV.Text.Trim();
+                string post = txtPostcode.ForeColor == Color.LightGray ? "" : txtPostcode.Text.Trim();
+
+                if (string.IsNullOrEmpty(name)) { MessageBox.Show("Please enter the cardholder name.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                if (string.IsNullOrEmpty(cardNum)) { MessageBox.Show("Please enter your card number.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                if (string.IsNullOrEmpty(expiry)) { MessageBox.Show("Please enter the expiry date.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                if (string.IsNullOrEmpty(cvv)) { MessageBox.Show("Please enter the CVV.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                if (string.IsNullOrEmpty(post)) { MessageBox.Show("Please enter your billing postcode.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+
+                paid = true;
+                bankForm.Close();
+            };
+            bankForm.Controls.Add(btnPay);
+
+            // Cancel button
+            Button btnCancel = new Button { Text = "Cancel", Location = new Point(370, 440), Size = new Size(82, 30), Font = new Font("Segoe UI", 9), BackColor = Color.FromArgb(240, 240, 240), ForeColor = Color.FromArgb(180, 30, 30), FlatStyle = FlatStyle.Flat };
+            btnCancel.FlatAppearance.BorderSize = 0;
+            btnCancel.Click += (s, e2) => bankForm.Close();
+            bankForm.Controls.Add(btnCancel);
+
+            bankForm.ShowDialog();
+            return paid;
         }
 
         private double CalcTotal()

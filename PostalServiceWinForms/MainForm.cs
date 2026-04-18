@@ -19,6 +19,7 @@ namespace PostalServiceWinForms
         private Button btnActive;
         public string UserName, UserRole, UserID, UserEmail;
         public DatabaseHelper DB;
+        private StampsView _stampsView = null; // Cached so orders persist between navigations
 
         private Color Red = Color.FromArgb(180, 30, 30);
         private Color DarkRed = Color.FromArgb(140, 20, 20);
@@ -116,7 +117,13 @@ namespace PostalServiceWinForms
         public void ShowHome() { Clear(); pnlContent.Controls.Add(new HomeView(this)); }
         public void ShowParcels() { Clear(); pnlContent.Controls.Add(new ParcelsView(UserID, UserName, DB)); }
         public void ShowDeliveries() { Clear(); pnlContent.Controls.Add(new DeliveriesView(UserID, DB)); }
-        public void ShowStamps() { Clear(); pnlContent.Controls.Add(new StampsView()); }
+        public void ShowStamps()
+        {
+            Clear();
+            if (_stampsView == null)
+                _stampsView = new StampsView();
+            pnlContent.Controls.Add(_stampsView);
+        }
         public void ShowFindUs() { Clear(); pnlContent.Controls.Add(new FindUsView(UserID, DB)); }
         public void ShowHelp() { Clear(); pnlContent.Controls.Add(new HelpView()); }
         public void ShowInfo() { Clear(); pnlContent.Controls.Add(new InfoView()); }
